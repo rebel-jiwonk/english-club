@@ -36,101 +36,138 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    // ======= CONFIG =======
-    const API_URL = "https://script.google.com/macros/s/AKfycbwONW92dwRIUeXmwUT1CVrni6Hlf6MAjTE0qz60d7bDUT6yKfPNXtBw8xUdkM_AvrAF/exec"; // Sheety or Apps Script Web App URL
-    const SLOTS = [
-      { id:"mon_9_10", label:"Mon 9–10" },
-      { id:"tue_12_1", label:"Tue 12–1" },
-      { id:"wed_12_1", label:"Wed 12–1" },
-      { id:"thu_12_1", label:"Thu 12–1" }
-    ];
-    const CAP = 5;
+  // ======= CONFIG =======
+  const API_URL = "https://script.google.com/macros/s/AKfycbxVfwxxxpIuaH-zkACG1xMv6P9emygYQGiOHu5e1kBnF2qa5P4SEmepBGPiefuwtPIu/exec";
+  const SLOTS = [
+    { id:"mon_9_10", label:"Mon 9–10" },
+    { id:"tue_12_1", label:"Tue 12–1" },
+    { id:"wed_12_1", label:"Wed 12–1" },
+    { id:"thu_12_1", label:"Thu 12–1" }
+  ];
+  const CAP = 5;
 
-    // ======= UTIL: ISO week string "YYYY-Www" =======
-    function getISOWeekString(d=new Date()){
-      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0
-      date.setUTCDate(date.getUTCDate() - dayNum + 3);
-      const firstThursday = new Date(Date.UTC(date.getUTCFullYear(),0,4));
-      const week = 1 + Math.round(((date - firstThursday)/86400000 - 3 + ((firstThursday.getUTCDay()+6)%7))/7);
-      return `${date.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
+  // --- ISO week (for storage) ---
+  function getISOWeekString(d=new Date()){
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0
+    date.setUTCDate(date.getUTCDate() - dayNum + 3);
+    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(),0,4));
+    const week = 1 + Math.round(((date - firstThursday)/86400000 - 3 + ((firstThursday.getUTCDay()+6)%7))/7);
+    return `${date.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
+  }
+
+  // --- Pretty "3rd week of September" label (Mon-start week-of-month) ---
+  function ordinal(n){
+    const rem10 = n % 10, rem100 = n % 100;
+    if (rem10 === 1 && rem100 !== 11) return n + "st";
+    if (rem10 === 2 && rem100 !== 12) return n + "nd";
+    if (rem10 === 3 && rem100 !== 13) return n + "rd";
+    return n + "th";
+  }
+  function weekOfMonthLabel(d=new Date()){
+    const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    // Monday-start week index within month
+    const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    let offset = firstOfMonth.getDay();               // 0 Sun ... 6 Sat
+    offset = (offset + 6) % 7;                        // convert to Mon=0
+    const weekIndex = Math.floor((offset + date.getDate() - 1) / 7) + 1;
+    const monthName = date.toLocaleString(undefined, { month: 'long' });
+    return `${ordinal(weekIndex)} week of ${monthName}`;
+  }
+
+  // Use ISO for data, pretty label for UI
+  const WEEK_ISO = getISOWeekString();
+  const WEEK_LABEL = weekOfMonthLabel();
+  document.getElementById("weekLabel").textContent = WEEK_LABEL;
+
+  const grid  = document.getElementById("grid");
+  const toast = document.getElementById("toast");
+  function showToast(msg){ toast.textContent = msg; toast.style.display="block"; setTimeout(()=>toast.style.display="none", 1600); }
+
+  // ---- JSONP GET (avoids CORS) ----
+  function jsonp(url){
+    return new Promise((resolve, reject)=>{
+      const cb = "cb_" + Math.random().toString(36).slice(2);
+      window[cb] = (data)=>{ resolve(data); delete window[cb]; s.remove(); };
+      const s = document.createElement("script");
+      s.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb;
+      s.onerror = ()=>{ delete window[cb]; s.remove(); reject(new Error("JSONP failed")); };
+      document.body.appendChild(s);
+    });
+  }
+  async function fetchRows(){
+    try {
+      const data = await jsonp(API_URL);
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error(e); showToast("Failed to load signups."); return [];
     }
-    const WEEK = getISOWeekString();
-    document.getElementById("weekLabel").textContent = WEEK;
+  }
 
-    const grid = document.getElementById("grid");
-    const toast = document.getElementById("toast");
+  function slotPeople(rows, slotLabel){ return rows.filter(r => r.week === WEEK_ISO && r.slot === slotLabel); }
 
-    function showToast(msg){
-      toast.textContent = msg;
-      toast.style.display = "block";
-      setTimeout(()=> toast.style.display="none", 1600);
-    }
+  // Display emails; if you prefer privacy, mask left-part like a***@company.com
+  function namesLine(list){
+    return list.map(p => p.name).join(", ") || "—";
+  }
 
-    async function fetchRows(){
-      const res = await fetch(API_URL, { cache:"no-store" });
-      return res.json(); // expects array of {timestamp, week, slot, name}
-    }
-
-    function namesLine(list){
-      return list.map(p => p.name).join(", ") || "—";
-    }
-
-    function slotPeople(rows, slotLabel){
-      return rows.filter(r => r.week === WEEK && r.slot === slotLabel);
-    }
-
-    function cardTemplate(slotLabel, count, names, full){
-      const btn = full ? `<button disabled>Full</button>` : `<button data-slot="${slotLabel}">Join</button>`;
-      return `
-        <div class="card">
-          <div class="left">
-            <div class="slot">${slotLabel}</div>
-            <div class="meta">Seats: ${count}/${CAP}</div>
-            <div class="names">${names}</div>
-          </div>
-          ${btn}
+  function cardTemplate(slotLabel, count, names, full){
+    const btn = full ? `<button disabled>Full</button>` : `<button data-slot="${slotLabel}">Join</button>`;
+    return `
+      <div class="card">
+        <div class="left">
+          <div class="slot">${slotLabel}</div>
+          <div class="meta">Seats: ${count}/${CAP}</div>
+          <div class="names">${names}</div>
         </div>
-      `;
-    }
+        ${btn}
+      </div>
+    `;
+  }
 
-    async function render(){
-      const rows = await fetchRows();
-      grid.innerHTML = "";
-      SLOTS.forEach(s => {
-        const people = slotPeople(rows, s.label);
-        const count = people.length;
-        const full = count >= CAP;
-        grid.insertAdjacentHTML("beforeend", cardTemplate(s.label, count, namesLine(people), full));
-      });
-      grid.querySelectorAll("button[data-slot]").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const slot = btn.getAttribute("data-slot");
-          const name = prompt("Enter your name (Slack display name):");
-          if(!name) return;
-          btn.disabled = true;
-          try{
-            const resp = await fetch(API_URL, {
-              method:"POST",
-              headers:{ "Content-Type":"application/json" },
-              body: JSON.stringify({ week: WEEK, slot: slot, name: name })
-            });
-            if(!resp.ok){
-              showToast("Signup failed. Try again.");
-              btn.disabled = false;
-              return;
-            }
-            showToast("Signed up!");
-            await render(); // refresh
-          }catch(e){
+  async function render(){
+    const rows = await fetchRows();
+    grid.innerHTML = "";
+    SLOTS.forEach(s=>{
+      const people = slotPeople(rows, s.label);
+      const count = people.length;
+      const full  = count >= CAP;
+      grid.insertAdjacentHTML("beforeend", cardTemplate(s.label, count, namesLine(people), full));
+    });
+
+    grid.querySelectorAll("button[data-slot]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const slot = btn.getAttribute("data-slot");
+        // Collect EMAIL but keep variable name 'name' (so backend unchanged)
+        const email = prompt("Enter your email (for reminders/invites):");
+        if (!email) return;
+        // light validation
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+        if (!ok) { showToast("Please enter a valid email."); return; }
+
+        const form = new URLSearchParams({ week: WEEK_ISO, slot, name: email.trim().toLowerCase() });
+
+        btn.disabled = true;
+        try {
+          const resp = await fetch(API_URL, { method: "POST", body: form });
+          const text = await resp.text();
+          let json = {};
+          try { json = JSON.parse(text); } catch(e){}
+          if (!resp.ok || json.ok === false) {
+            showToast(json.error ? `Signup failed: ${json.error}` : `Signup failed (${resp.status})`);
             btn.disabled = false;
-            showToast("Network error.");
+            return;
           }
-        });
+          showToast("Signed up!");
+          await render();
+        } catch(err){
+          console.error(err); showToast("Signup failed."); btn.disabled = false;
+        }
       });
-    }
+    });
+  }
 
-    render();
-  </script>
+  render();
+</script>
 </body>
 </html>
