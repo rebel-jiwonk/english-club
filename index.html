@@ -24,7 +24,9 @@
     <p class="mt-5 text-[#9aa3ad] text-sm">Having trouble? Ping the organizer in Slack. Data is stored in Google Sheets for this week only.</p>
   </div>
 
-  <!-- <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden"></div> -->
+  <!-- Optional toast (kept commented). We’ll fallback to a temp toast if this stays commented.
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden"></div>
+  -->
 
   <script>
   // ======= CONFIG =======
@@ -37,10 +39,9 @@
   ];
   const CAP = 5;
 
-  function showLoading(message="Updating...") {
+  function showLoading() {
     document.getElementById("loading").style.display = "flex";
   }
-
   function hideLoading() {
     document.getElementById("loading").style.display = "none";
   }
@@ -63,15 +64,10 @@
     if (rem10 === 3 && rem100 !== 13) return n + "rd";
     return n + "th";
   }
-
   function weekOfMonthLabel(d=new Date()){
-    // shift to NEXT week
-    const next = new Date(d);
-    next.setDate(next.getDate() + 7);
-
+    const next = new Date(d); next.setDate(next.getDate() + 7); // show next week
     const firstOfMonth = new Date(next.getFullYear(), next.getMonth(), 1);
-    let offset = firstOfMonth.getDay(); // 0 Sun ... 6 Sat
-    offset = (offset + 6) % 7;          // convert to Mon=0
+    let offset = (firstOfMonth.getDay() + 6) % 7; // Mon=0
     const weekIndex = Math.floor((offset + next.getDate() - 1) / 7) + 1;
     const monthName = next.toLocaleString(undefined, { month: 'long' });
     return `${ordinal(weekIndex)} week of ${monthName}`;
@@ -83,8 +79,21 @@
   document.getElementById("weekLabel").textContent = WEEK_LABEL;
 
   const grid  = document.getElementById("grid");
-  const toast = document.getElementById("toast");
-  function showToast(msg){ toast.textContent = msg; toast.classList.remove("hidden"); setTimeout(()=>toast.classList.add("hidden"), 1600); }
+
+  // Toast that works even if #toast is not in DOM
+  function showToast(msg){
+    let t = document.getElementById("toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "toast";
+      t.className = "fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a]";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.remove("hidden");
+    clearTimeout(t._tmr);
+    t._tmr = setTimeout(()=>t.classList.add("hidden"), 1600);
+  }
 
   // ---- JSONP GET (avoids CORS) ----
   function jsonp(url){
@@ -108,19 +117,30 @@
 
   function slotPeople(rows, slotLabel){ return rows.filter(r => r.week === WEEK_ISO && r.slot === slotLabel); }
 
-  // Display emails; if you prefer privacy, mask left-part like a***@company.com
-  function namesLine(list){
-    return list.map(p => p.name).join(", ") || "—";
+  // Escape to keep chips safe
+  function esc(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  // Render names as clickable chips; clicking one deletes that signup
+  function namesLine(list, slotLabel){
+    if (!list.length) return "—";
+    return list.map(p => {
+      const nm = esc(p.name || "");
+      const sl = esc(slotLabel);
+      return `<button class="name-chip inline-block px-2 py-1 rounded-md bg-[#2f3742] text-[#dfe6ee] text-sm hover:bg-[#3a4450] mr-1 mb-1"
+                      data-slot="${sl}" data-name="${nm}">${nm}</button>`;
+    }).join(" ");
   }
 
-  function cardTemplate(slotLabel, count, names, full){
-    const btn = full ? `<button disabled class="mt-2 px-4 py-2 rounded-lg bg-[#52F756] text-[#031b06] font-bold opacity-45 cursor-not-allowed">Full</button>` : `<button data-slot="${slotLabel}" class="mt-2 px-4 py-2 rounded-lg bg-[#52F756] text-[#031b06] font-bold hover:bg-[#43c944]">Join</button>`;
+  function cardTemplate(slotLabel, count, namesHtml, full){
+    const btn = full 
+      ? `<button disabled class="mt-2 px-4 py-2 rounded-lg bg-[#52F756] text-[#031b06] font-bold opacity-45 cursor-not-allowed">Full</button>` 
+      : `<button data-slot="${slotLabel}" class="mt-2 px-4 py-2 rounded-lg bg-[#52F756] text-[#031b06] font-bold hover:bg-[#43c944]">Join</button>`;
     return `
-      <div class="card bg-[#14171c] border border-[#22272e] rounded-xl p-4 flex flex-col items-center gap-2 w-full max-w-md">
+      <div class="card bg-[#14171c] border border-[#22272e] rounded-xl p-4 flex flex-col items-center gap-2 w-full max-w-md mx-auto my-2">
         <div class="left flex flex-col gap-1 items-center">
           <div class="slot font-bold text-center">${slotLabel}</div>
           <div class="meta text-sm text-[#9aa3ad] text-center">Seats: ${count}/${CAP}</div>
-          <div class="names text-base text-center">${names}</div>
+          <div class="names text-base text-center">${namesHtml}</div>
         </div>
         ${btn}
       </div>
@@ -128,17 +148,18 @@
   }
 
   async function render(){
-    showLoading("Loading...");
+    showLoading();
     const rows = await fetchRows();
     grid.innerHTML = "";
     SLOTS.forEach(s=>{
       const people = slotPeople(rows, s.label);
       const count = people.length;
       const full  = count >= CAP;
-      grid.insertAdjacentHTML("beforeend", cardTemplate(s.label, count, namesLine(people), full));
+      grid.insertAdjacentHTML("beforeend", cardTemplate(s.label, count, namesLine(people, s.label), full));
     });
 
-    grid.querySelectorAll("button[data-slot]").forEach(btn=>{
+    // JOIN handler (green button)
+    grid.querySelectorAll("button[data-slot]:not(.name-chip)").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
         const slot = btn.getAttribute("data-slot");
         const name = prompt("Enter your name:");
@@ -147,7 +168,7 @@
         const form = new URLSearchParams({ action:"create", week: WEEK_ISO, slot, name: name.trim() });
 
         btn.disabled = true;
-        showLoading("Updating...");
+        showLoading();
         try {
           const resp = await fetch(API_URL, { method: "POST", body: form });
           const json = await resp.json();
@@ -167,9 +188,41 @@
         }
       });
     });
+
     hideLoading();
   }
 
+  // Click a name chip to delete that signup (delegated)
+  grid.addEventListener("click", async (e) => {
+    const chip = e.target.closest(".name-chip");
+    if (!chip) return;
+
+    const slot = chip.getAttribute("data-slot");
+    const name = chip.getAttribute("data-name");
+    if (!slot || !name) return;
+
+    if (!confirm(`Remove ${name} from "${slot}"?`)) return;
+
+    showLoading();
+    try {
+      const form = new URLSearchParams({ action:"delete", week: WEEK_ISO, slot, name });
+      const resp = await fetch(API_URL, { method:"POST", body: form });
+      const json = await resp.json();
+      if (!resp.ok || json.ok === false) {
+        showToast(json.error || "Delete failed");
+      } else {
+        showToast("Removed!");
+        await render();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error.");
+    } finally {
+      hideLoading();
+    }
+  });
+
+  // initial render
   render();
   </script>
 </body>
