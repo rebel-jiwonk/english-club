@@ -3,37 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <title>English Club Signup</title>
   <style>
-    :root { --bg:#0b0c0f; --card:#14171c; --text:#f5f7fa; --muted:#9aa3ad; --accent:#52F756; }
-    html,body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,AppleSDGothicNeo,Segoe UI,Roboto,Helvetica,Arial;}
-    .wrap { max-width:720px; margin:40px auto; padding:20px; }
-    h1{ font-size:28px; margin:0 0 8px }
-    .sub{ color:var(--muted); margin:0 0 24px }
-    .grid{ display:grid; gap:12px }
-    .card{ background:var(--card); border:1px solid #22272e; border-radius:12px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between }
-    .left{ display:flex; flex-direction:column; gap:6px }
-    .slot{ font-weight:700 }
-    .meta{ font-size:13px; color:var(--muted) }
-    button{ border:none; padding:10px 14px; border-radius:10px; background:var(--accent); color:#031b06; font-weight:700; cursor:pointer }
-    button[disabled]{ opacity:.45; cursor:not-allowed }
-    .names{ font-size:14px }
-    .footer{ margin-top:18px; color:var(--muted); font-size:13px }
-    .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1d2229; color:#fff; padding:10px 14px; border-radius:10px; border:1px solid #2a313a; display:none }
-    a{ color:var(--accent); text-decoration:none }
+    @keyframes spin { 
+      0% { transform: rotate(0deg);} 
+      100% { transform: rotate(360deg);} 
+    }
   </style>
 </head>
-<body>
-  <div class="wrap">
-    <h1>English Club Signup</h1>
-    <p class="sub">Week: <span id="weekLabel">…</span> · 5 seats per slot</p>
-
-    <div id="grid" class="grid"></div>
-
-    <p class="footer">Having trouble? Ping the organizer in Slack. Data is stored in Google Sheets for this week only.</p>
+<body class="bg-[#0b0c0f] text-[#f5f7fa] font-sans text-center container">
+  <div id="loading" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999] hidden">
+    <div style="width:60px;height:60px; border:6px solid #ccc; border-top:6px solid #52F756; border-radius:50%; animation: spin 1s linear infinite;"></div>
   </div>
 
-  <div id="toast" class="toast"></div>
+  <div class="mx-auto p-6 bg-[#14171c] rounded-xl shadow-lg" id="wrap">
+    <h1 class="text-2xl font-bold mb-2">English Club Signup</h1>
+    <p class="text-[#9aa3ad] mb-6">Week: <span id="weekLabel">…</span> · 5 seats per slot</p>
+    <div id="grid" class="justify-items-center"></div>
+    <p class="mt-5 text-[#9aa3ad] text-sm">Having trouble? Ping the organizer in Slack. Data is stored in Google Sheets for this week only.</p>
+  </div>
+
+  <!-- <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden"></div> -->
 
   <script>
   // ======= CONFIG =======
@@ -46,46 +37,54 @@
   ];
   const CAP = 5;
 
+  function showLoading(message="Updating...") {
+    document.getElementById("loading").style.display = "flex";
+  }
+
+  function hideLoading() {
+    document.getElementById("loading").style.display = "none";
+  }
+
   // --- ISO week (for storage) ---
-function getISOWeekString(d=new Date()){
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0
-  date.setUTCDate(date.getUTCDate() - dayNum + 3);
-  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(),0,4));
-  const week = 1 + Math.round(((date - firstThursday)/86400000 - 3 + ((firstThursday.getUTCDay()+6)%7))/7);
-  return `${date.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
-}
+  function getISOWeekString(d=new Date()){
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0
+    date.setUTCDate(date.getUTCDate() - dayNum + 3);
+    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(),0,4));
+    const week = 1 + Math.round(((date - firstThursday)/86400000 - 3 + ((firstThursday.getUTCDay()+6)%7))/7);
+    return `${date.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
+  }
 
-// --- Pretty "Nth week of Month" (Mon-start, shifted +1 week) ---
-function ordinal(n){
-  const rem10 = n % 10, rem100 = n % 100;
-  if (rem10 === 1 && rem100 !== 11) return n + "st";
-  if (rem10 === 2 && rem100 !== 12) return n + "nd";
-  if (rem10 === 3 && rem100 !== 13) return n + "rd";
-  return n + "th";
-}
+  // --- Pretty "Nth week of Month" (Mon-start, shifted +1 week) ---
+  function ordinal(n){
+    const rem10 = n % 10, rem100 = n % 100;
+    if (rem10 === 1 && rem100 !== 11) return n + "st";
+    if (rem10 === 2 && rem100 !== 12) return n + "nd";
+    if (rem10 === 3 && rem100 !== 13) return n + "rd";
+    return n + "th";
+  }
 
-function weekOfMonthLabel(d=new Date()){
-  // shift to NEXT week
-  const next = new Date(d);
-  next.setDate(next.getDate() + 7);
+  function weekOfMonthLabel(d=new Date()){
+    // shift to NEXT week
+    const next = new Date(d);
+    next.setDate(next.getDate() + 7);
 
-  const firstOfMonth = new Date(next.getFullYear(), next.getMonth(), 1);
-  let offset = firstOfMonth.getDay(); // 0 Sun ... 6 Sat
-  offset = (offset + 6) % 7;          // convert to Mon=0
-  const weekIndex = Math.floor((offset + next.getDate() - 1) / 7) + 1;
-  const monthName = next.toLocaleString(undefined, { month: 'long' });
-  return `${ordinal(weekIndex)} week of ${monthName}`;
-}
+    const firstOfMonth = new Date(next.getFullYear(), next.getMonth(), 1);
+    let offset = firstOfMonth.getDay(); // 0 Sun ... 6 Sat
+    offset = (offset + 6) % 7;          // convert to Mon=0
+    const weekIndex = Math.floor((offset + next.getDate() - 1) / 7) + 1;
+    const monthName = next.toLocaleString(undefined, { month: 'long' });
+    return `${ordinal(weekIndex)} week of ${monthName}`;
+  }
 
-// Use ISO for data, pretty label (n+1 week) for UI
-const WEEK_ISO = getISOWeekString();      // stored in sheet
-const WEEK_LABEL = weekOfMonthLabel();    // shown in UI
-document.getElementById("weekLabel").textContent = WEEK_LABEL;
+  // Use ISO for data, pretty label (n+1 week) for UI
+  const WEEK_ISO = getISOWeekString();      // stored in sheet
+  const WEEK_LABEL = weekOfMonthLabel();    // shown in UI
+  document.getElementById("weekLabel").textContent = WEEK_LABEL;
 
   const grid  = document.getElementById("grid");
   const toast = document.getElementById("toast");
-  function showToast(msg){ toast.textContent = msg; toast.style.display="block"; setTimeout(()=>toast.style.display="none", 1600); }
+  function showToast(msg){ toast.textContent = msg; toast.classList.remove("hidden"); setTimeout(()=>toast.classList.add("hidden"), 1600); }
 
   // ---- JSONP GET (avoids CORS) ----
   function jsonp(url){
@@ -115,13 +114,13 @@ document.getElementById("weekLabel").textContent = WEEK_LABEL;
   }
 
   function cardTemplate(slotLabel, count, names, full){
-    const btn = full ? `<button disabled>Full</button>` : `<button data-slot="${slotLabel}">Join</button>`;
+    const btn = full ? `<button disabled class="mt-2 px-4 py-2 rounded-lg bg-[#52F756] text-[#031b06] font-bold opacity-45 cursor-not-allowed">Full</button>` : `<button data-slot="${slotLabel}" class="mt-2 px-4 py-2 rounded-lg bg-[#52F756] text-[#031b06] font-bold hover:bg-[#43c944]">Join</button>`;
     return `
-      <div class="card">
-        <div class="left">
-          <div class="slot">${slotLabel}</div>
-          <div class="meta">Seats: ${count}/${CAP}</div>
-          <div class="names">${names}</div>
+      <div class="card bg-[#14171c] border border-[#22272e] rounded-xl p-4 flex flex-col items-center gap-2 w-full max-w-md">
+        <div class="left flex flex-col gap-1 items-center">
+          <div class="slot font-bold text-center">${slotLabel}</div>
+          <div class="meta text-sm text-[#9aa3ad] text-center">Seats: ${count}/${CAP}</div>
+          <div class="names text-base text-center">${names}</div>
         </div>
         ${btn}
       </div>
@@ -129,6 +128,7 @@ document.getElementById("weekLabel").textContent = WEEK_LABEL;
   }
 
   async function render(){
+    showLoading("Loading...");
     const rows = await fetchRows();
     grid.innerHTML = "";
     SLOTS.forEach(s=>{
@@ -141,36 +141,36 @@ document.getElementById("weekLabel").textContent = WEEK_LABEL;
     grid.querySelectorAll("button[data-slot]").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
         const slot = btn.getAttribute("data-slot");
-        // Collect EMAIL but keep variable name 'name' (so backend unchanged)
-        const email = prompt("Enter your email (for reminders/invites):");
-        if (!email) return;
-        // light validation
-        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-        if (!ok) { showToast("Please enter a valid email."); return; }
+        const name = prompt("Enter your name:");
+        if (!name) return;
 
-        const form = new URLSearchParams({ week: WEEK_ISO, slot, name: email.trim().toLowerCase() });
+        const form = new URLSearchParams({ action:"create", week: WEEK_ISO, slot, name: name.trim() });
 
         btn.disabled = true;
+        showLoading("Updating...");
         try {
           const resp = await fetch(API_URL, { method: "POST", body: form });
-          const text = await resp.text();
-          let json = {};
-          try { json = JSON.parse(text); } catch(e){}
+          const json = await resp.json();
           if (!resp.ok || json.ok === false) {
-            showToast(json.error ? `Signup failed: ${json.error}` : `Signup failed (${resp.status})`);
-            btn.disabled = false;
-            return;
+            showToast(json.error || "Signup failed");
+            btn.disabled=false;
+          } else {
+            showToast("Signed up!");
+            await render();
           }
-          showToast("Signed up!");
-          await render();
-        } catch(err){
-          console.error(err); showToast("Signup failed."); btn.disabled = false;
+        } catch (err) {
+          console.error(err);
+          showToast("Network error.");
+          btn.disabled=false;
+        } finally {
+          hideLoading();
         }
       });
     });
+    hideLoading();
   }
 
   render();
-</script>
+  </script>
 </body>
 </html>
