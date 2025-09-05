@@ -172,7 +172,6 @@
         if (!name) return;
 
         const form = new URLSearchParams({ action:"create", week: WEEK_ISO, slot, name: name.trim() });
-        const form = new URLSearchParams({ mode:"signup", week: WEEK_ISO, slot, name: name.trim() });
 
         btn.disabled = true;
         btn.textContent = "Joining...";
@@ -216,7 +215,6 @@
     showLoading();
     try {
       const form = new URLSearchParams({ action:"delete", week: WEEK_ISO, slot, name });
-      const form = new URLSearchParams({ mode:"delete", week: WEEK_ISO, slot, name });
       const resp = await fetch(API_URL, { method:"POST", body: form });
       const json = await resp.json();
       if (!resp.ok || json.ok === false) {
