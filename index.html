@@ -41,14 +41,10 @@
   ];
   const CAP = 6;
 
-  function showLoading() {
-    document.getElementById("loading").style.display = "flex";
-  }
-  function hideLoading() {
-    document.getElementById("loading").style.display = "none";
-  }
+  function showLoading() { document.getElementById("loading").style.display = "flex"; }
+  function hideLoading() { document.getElementById("loading").style.display = "none"; }
 
-  // --- ISO week (for storage) ---
+  // ---- Week helpers ----
   function getISOWeekString(d=new Date()){
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0
@@ -57,32 +53,36 @@
     const week = 1 + Math.round(((date - firstThursday)/86400000 - 3 + ((firstThursday.getUTCDay()+6)%7))/7);
     return `${date.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
   }
+  function ordinal(n){ const r=n%10, r2=n%100; if(r===1&&r2!==11) return n+"st"; if(r===2&&r2!==12) return n+"nd"; if(r===3&&r2!==13) return n+"rd"; return n+"th"; }
+  function customWeekLabel(d=new Date()) {
+  // Calculate Monday of the target week
+  const start = new Date(d);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); // shift to Monday
 
-  // --- Pretty "Nth week of Month" (Mon-start, shifted +1 week) ---
-  function ordinal(n){
-    const rem10 = n % 10, rem100 = n % 100;
-    if (rem10 === 1 && rem100 !== 11) return n + "st";
-    if (rem10 === 2 && rem100 !== 12) return n + "nd";
-    if (rem10 === 3 && rem100 !== 13) return n + "rd";
-    return n + "th";
-  }
-  function weekOfMonthLabel(d=new Date()){
-    const next = new Date(d); next.setDate(next.getDate() + 7); // show next week
-    const firstOfMonth = new Date(next.getFullYear(), next.getMonth(), 1);
-    let offset = (firstOfMonth.getDay() + 6) % 7; // Mon=0
-    const weekIndex = Math.floor((offset + next.getDate() - 1) / 7) + 1;
-    const monthName = next.toLocaleString(undefined, { month: 'long' });
-    return `${ordinal(weekIndex)} week of ${monthName}`;
-  }
+  // End = Thursday (3 days after Monday)
+  const end = new Date(start);
+  end.setDate(start.getDate() + 3);
 
-  // Use ISO for data, pretty label (n+1 week) for UI
-  const WEEK_ISO = getISOWeekString();      // stored in sheet
-  const WEEK_LABEL = weekOfMonthLabel();    // shown in UI
-  document.getElementById("weekLabel").textContent = WEEK_LABEL;
+  // Format like "Sep 8 - 11"
+  const opts = { month: 'short', day: 'numeric' };
+  const startStr = start.toLocaleDateString(undefined, opts);
+  const endStr = end.toLocaleDateString(undefined, { day: 'numeric' });
+  return `${startStr} - ${endStr}`;
+}
 
+  // Choose a single target date for BOTH the label and filtering.
+  // If you want next week, uncomment the next two lines.
+  const TARGET = new Date();
+  // TARGET.setDate(TARGET.getDate() + 7); // <- use next week instead of this week
+
+TARGET.setDate(TARGET.getDate() + 7);
+
+const WEEK_ISO   = getISOWeekString(TARGET);   // stored in DB
+const WEEK_LABEL = customWeekLabel(TARGET);    // shown in UI
+document.getElementById("weekLabel").textContent = WEEK_LABEL;
+
+  // ---- UI helpers ----
   const grid  = document.getElementById("grid");
-
-  // Toast that works even if #toast is not in DOM
   function showToast(msg){
     let t = document.getElementById("toast");
     if (!t) {
@@ -96,8 +96,9 @@
     clearTimeout(t._tmr);
     t._tmr = setTimeout(()=>t.classList.add("hidden"), 1600);
   }
+  const esc = s => (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
-  // ---- JSONP GET (avoids CORS) ----
+  // ---- JSONP GET (Apps Script supports callback=) ----
   function jsonp(url){
     return new Promise((resolve, reject)=>{
       const cb = "cb_" + Math.random().toString(36).slice(2);
@@ -108,21 +109,23 @@
       document.body.appendChild(s);
     });
   }
-  async function fetchRows(){
-    try {
-      const data = await jsonp(API_URL);
-      return Array.isArray(data) ? data : [];
-    } catch (e) {
-      console.error(e); showToast("Failed to load signups."); return [];
-    }
+
+  // === FETCH signups from your new endpoint shape ===
+  async function fetchSignups() {
+    // your doGet returns: { currentWeek, weeks, byWeek }
+    const data = await jsonp(`${API_URL}?action=signups`);
+    if (!data || !data.byWeek) return { currentWeek: null, weeks: [], rows: [] };
+
+    // Prefer the chosen WEEK_ISO; if missing, fall back to server's currentWeek
+    const weekKey = data.byWeek[WEEK_ISO] ? WEEK_ISO : data.currentWeek;
+    const rowsForWeek = (data.byWeek[weekKey] || []).map(r => ({
+      timestamp: r.timestamp, week: r.week, slot: r.slot, name: r.name, email: r.email || ''
+    }));
+    return { currentWeek: weekKey, weeks: data.weeks, rows: rowsForWeek };
   }
 
-  function slotPeople(rows, slotLabel){ return rows.filter(r => r.week === WEEK_ISO && r.slot === slotLabel); }
+  function slotPeople(rows, slotLabel){ return rows.filter(r => r.slot === slotLabel); }
 
-  // Escape to keep chips safe
-  function esc(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-  // Render names as clickable chips; clicking one deletes that signup
   function namesLine(list, slotLabel){
     if (!list.length) return '<span class="text-[#6b7280] italic">No signups yet</span>';
     return list.map(p => {
@@ -138,7 +141,6 @@
     const btn = full 
       ? `<button disabled class="mt-4 px-6 py-3 rounded-xl bg-gray-600 text-gray-400 font-bold cursor-not-allowed transition-all duration-200 border border-gray-500">Full</button>` 
       : `<button data-slot="${slotLabel}" class="mt-4 px-6 py-3 rounded-xl bg-[#52F756] text-[#031b06] font-bold hover:bg-[#43c944] hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl transform active:scale-95">Join</button>`;
-    
     return `
       <div class="card bg-gradient-to-br from-[#1a1f26] to-[#14171c] border border-[#2a313a] rounded-2xl p-6 flex flex-col items-center gap-4 w-full max-w-sm mx-auto shadow-lg hover:shadow-xl transition-all duration-300 hover:border-[#52F756]/30 hover:transform hover:scale-[1.02]">
         <div class="left flex flex-col gap-3 items-center w-full">
@@ -155,53 +157,60 @@
 
   async function render(){
     showLoading();
-    const rows = await fetchRows();
-    grid.innerHTML = "";
-    SLOTS.forEach(s=>{
-      const people = slotPeople(rows, s.label);
-      const count = people.length;
-      const full  = count >= CAP;
-      grid.insertAdjacentHTML("beforeend", cardTemplate(s.label, count, namesLine(people, s.label), full));
-    });
-
-    // JOIN handler (green button)
-    grid.querySelectorAll("button[data-slot]:not(.name-chip)").forEach(btn=>{
-      btn.addEventListener("click", async ()=>{
-        const slot = btn.getAttribute("data-slot");
-        const name = prompt("Enter your name:");
-        if (!name) return;
-
-        const form = new URLSearchParams({ action:"create", week: WEEK_ISO, slot, name: name.trim() });
-
-        btn.disabled = true;
-        btn.textContent = "Joining...";
-        showLoading();
-        try {
-          const resp = await fetch(API_URL, { method: "POST", body: form });
-          const json = await resp.json();
-          if (!resp.ok || json.ok === false) {
-            showToast(json.error || "Signup failed");
-            btn.disabled=false;
-            btn.textContent = "Join";
-          } else {
-            showToast("Successfully signed up!");
-            await render();
-          }
-        } catch (err) {
-          console.error(err);
-          showToast("Network error. Please try again.");
-          btn.disabled=false;
-          btn.textContent = "Join";
-        } finally {
-          hideLoading();
-        }
+    try {
+      const { currentWeek, rows } = await fetchSignups();
+      // If the sheet is empty, show placeholders
+      grid.innerHTML = "";
+      SLOTS.forEach(s=>{
+        const people = slotPeople(rows, s.label);
+        const count = people.length;
+        const full  = count >= CAP;
+        grid.insertAdjacentHTML("beforeend", cardTemplate(s.label, count, namesLine(people, s.label), full));
       });
-    });
 
-    hideLoading();
+      // JOIN handler (POST must use mode=signup)
+      grid.querySelectorAll("button[data-slot]:not(.name-chip)").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          const slot = btn.getAttribute("data-slot");
+          const name = prompt("Enter your name:");
+          if (!name) return;
+
+          const form = new URLSearchParams({
+            mode: "signup",                     // <---- REQUIRED by your script
+            week: WEEK_ISO,                     // store the week you chose
+            slot,
+            name: name.trim(),
+            // email: ''                         // optional if you want
+          });
+
+          btn.disabled = true;
+          btn.textContent = "Joining...";
+          showLoading();
+          try {
+            const resp = await fetch(API_URL, { method: "POST", body: form });
+            const json = await resp.json();
+            if (!resp.ok || json.ok === false) {
+              showToast(json.error || "Signup failed");
+              btn.disabled=false; btn.textContent = "Join";
+            } else {
+              showToast("Successfully signed up!");
+              await render();
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Network error. Please try again.");
+            btn.disabled=false; btn.textContent = "Join";
+          } finally {
+            hideLoading();
+          }
+        });
+      });
+    } finally {
+      hideLoading();
+    }
   }
 
-  // Click a name chip to delete that signup (delegated)
+  // Delete (name chip) must use mode=delete to match your script
   grid.addEventListener("click", async (e) => {
     const chip = e.target.closest(".name-chip");
     if (!chip) return;
@@ -214,7 +223,12 @@
 
     showLoading();
     try {
-      const form = new URLSearchParams({ action:"delete", week: WEEK_ISO, slot, name });
+      const form = new URLSearchParams({
+        mode: "delete",        // <---- REQUIRED by your script
+        week: WEEK_ISO,
+        slot,
+        name
+      });
       const resp = await fetch(API_URL, { method:"POST", body: form });
       const json = await resp.json();
       if (!resp.ok || json.ok === false) {
@@ -231,8 +245,8 @@
     }
   });
 
-  // initial render
+  // Initial render
   render();
-  </script>
+</script>
 </body>
 </html>
