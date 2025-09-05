@@ -220,7 +220,7 @@
       if (!resp.ok || json.ok === false) {
         showToast(json.error || "Delete failed");
       } else {
-        showToast("Successfully removed!");
+        showToast(`${name} removed from ${slot}!`);
         await render();
       }
     } catch (err) {
