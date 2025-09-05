@@ -17,20 +17,18 @@
     <div class="w-16 h-16 border-4 border-gray-300 border-t-[#52F756] rounded-full animate-spin"></div>
   </div>
 
-  <div class="w-full max-w-4xl mx-auto p-8 bg-[#14171c] rounded-2xl shadow-2xl border border-[#22272e]" id="wrap">
+  <div class="w-full max-w-5xl mx-auto p-8 bg-[#14171c] rounded-2xl shadow-2xl border border-[#22272e]" id="wrap">
     <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold mb-3 bg-gradient-to-r from-[#52F756] to-[#43c944] bg-clip-text text-transparent">English Club Signup</h1>
+      <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-[#52F756] to-[#43c944] bg-clip-text text-transparent">English Club Signup</h1>
       <p class="text-[#9aa3ad] text-lg">Week: <span id="weekLabel" class="font-semibold text-[#dfe6ee]">…</span> · <span class="text-[#52F756] font-semibold">6 seats</span> per slot</p>
     </div>
-    <div id="grid" class="grid grid-cols-1 md:grid-cols-2 gap-6 justify-items-center"></div>
+    <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center"></div>
     <div class="mt-8 pt-6 border-t border-[#22272e] text-center">
       <p class="text-[#9aa3ad] text-sm">Having trouble? Ping the organizer in Slack. Data is stored in Google Sheets for this week only.</p>
     </div>
   </div>
 
-  <!-- Optional toast (kept commented). We’ll fallback to a temp toast if this stays commented.
-  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden"></div>
-  -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden shadow-lg"></div>
 
   <script>
   // ======= CONFIG =======
@@ -41,7 +39,6 @@
     { id:"wed_12_1", label:"Wed 12–1" },
     { id:"thu_12_1", label:"Thu 12–1" }
   ];
-  const CAP = 5;
   const CAP = 6;
 
   function showLoading() {
@@ -91,7 +88,7 @@
     if (!t) {
       t = document.createElement("div");
       t.id = "toast";
-      t.className = "fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a]";
+      t.className = "fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] shadow-lg";
       document.body.appendChild(t);
     }
     t.textContent = msg;
@@ -127,27 +124,29 @@
 
   // Render names as clickable chips; clicking one deletes that signup
   function namesLine(list, slotLabel){
-    if (!list.length) return "—";
+    if (!list.length) return '<span class="text-[#6b7280] italic">No signups yet</span>';
     return list.map(p => {
       const nm = esc(p.name || "");
       const sl = esc(slotLabel);
-      return `<button class="name-chip inline-block px-3 py-1.5 rounded-lg bg-[#2f3742] text-[#dfe6ee] text-sm hover:bg-red-600 hover:text-white transition-all duration-200 border border-[#3a4450] hover:border-red-500 shadow-sm"
+      return `<button class="name-chip inline-block px-3 py-1.5 rounded-lg bg-[#2f3742] text-[#dfe6ee] text-sm hover:bg-red-600 hover:text-white transition-all duration-200 border border-[#3a4450] hover:border-red-500 shadow-sm hover:shadow-md transform hover:scale-105"
                       data-slot="${sl}" data-name="${nm}">${nm}</button>`;
     }).join(" ");
   }
 
   function cardTemplate(slotLabel, count, namesHtml, full){
+    const seatColor = count >= CAP ? 'text-red-400' : count >= CAP-1 ? 'text-yellow-400' : 'text-[#52F756]';
     const btn = full 
-      ? `<button disabled class="mt-4 px-6 py-3 rounded-xl bg-[#52F756] text-[#031b06] font-bold opacity-45 cursor-not-allowed transition-all duration-200">Full</button>` 
-      : `<button data-slot="${slotLabel}" class="mt-4 px-6 py-3 rounded-xl bg-[#52F756] text-[#031b06] font-bold hover:bg-[#43c944] hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl">Join</button>`;
+      ? `<button disabled class="mt-4 px-6 py-3 rounded-xl bg-gray-600 text-gray-400 font-bold cursor-not-allowed transition-all duration-200 border border-gray-500">Full</button>` 
+      : `<button data-slot="${slotLabel}" class="mt-4 px-6 py-3 rounded-xl bg-[#52F756] text-[#031b06] font-bold hover:bg-[#43c944] hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl transform active:scale-95">Join</button>`;
+    
     return `
-      <div class="card bg-gradient-to-br from-[#1a1f26] to-[#14171c] border border-[#2a313a] rounded-2xl p-6 flex flex-col items-center gap-3 w-full max-w-sm mx-auto shadow-lg hover:shadow-xl transition-all duration-300 hover:border-[#52F756]/30">
+      <div class="card bg-gradient-to-br from-[#1a1f26] to-[#14171c] border border-[#2a313a] rounded-2xl p-6 flex flex-col items-center gap-4 w-full max-w-sm mx-auto shadow-lg hover:shadow-xl transition-all duration-300 hover:border-[#52F756]/30 hover:transform hover:scale-[1.02]">
         <div class="left flex flex-col gap-3 items-center w-full">
-          <div class="slot text-xl font-bold text-center text-[#dfe6ee]">${slotLabel}</div>
-          <div class="meta text-sm text-[#9aa3ad] text-center bg-[#0f1419] px-3 py-1 rounded-full border border-[#22272e]">
-            Seats: <span class="font-semibold ${count >= CAP ? 'text-red-400' : count >= CAP-1 ? 'text-yellow-400' : 'text-[#52F756]'}">${count}</span>/<span class="text-[#52F756]">${CAP}</span>
+          <div class="slot text-xl font-bold text-center text-[#dfe6ee] mb-1">${slotLabel}</div>
+          <div class="meta text-sm text-[#9aa3ad] text-center bg-[#0f1419] px-4 py-2 rounded-full border border-[#22272e] shadow-inner">
+            Seats: <span class="font-semibold ${seatColor}">${count}</span>/<span class="text-[#52F756] font-semibold">${CAP}</span>
           </div>
-          <div class="names text-base text-center w-full min-h-[2rem] flex flex-wrap justify-center items-center gap-1">${namesHtml}</div>
+          <div class="names text-sm text-center w-full min-h-[3rem] flex flex-wrap justify-center items-center gap-2 p-2 bg-[#0f1419] rounded-lg border border-[#22272e]">${namesHtml}</div>
         </div>
         ${btn}
       </div>
@@ -175,6 +174,7 @@
         const form = new URLSearchParams({ action:"create", week: WEEK_ISO, slot, name: name.trim() });
 
         btn.disabled = true;
+        btn.textContent = "Joining...";
         showLoading();
         try {
           const resp = await fetch(API_URL, { method: "POST", body: form });
@@ -182,14 +182,16 @@
           if (!resp.ok || json.ok === false) {
             showToast(json.error || "Signup failed");
             btn.disabled=false;
+            btn.textContent = "Join";
           } else {
-            showToast("Signed up!");
+            showToast("Successfully signed up!");
             await render();
           }
         } catch (err) {
           console.error(err);
-          showToast("Network error.");
+          showToast("Network error. Please try again.");
           btn.disabled=false;
+          btn.textContent = "Join";
         } finally {
           hideLoading();
         }
@@ -218,12 +220,12 @@
       if (!resp.ok || json.ok === false) {
         showToast(json.error || "Delete failed");
       } else {
-        showToast("Removed!");
+        showToast("Successfully removed!");
         await render();
       }
     } catch (err) {
       console.error(err);
-      showToast("Network error.");
+      showToast("Network error. Please try again.");
     } finally {
       hideLoading();
     }
