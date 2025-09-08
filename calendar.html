@@ -74,7 +74,36 @@
     let currentDate = new Date();
     let selectedDateStr = '';
 
-    // Load articles from JSON
+    // -------- Helpers (LOCAL time only) --------
+
+    // Format date as YYYY-MM-DD in LOCAL time (no UTC/ISO).
+    function formatDateLocal(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    // Build a local Date from "YYYY-MM-DD" safely (no UTC parsing).
+    function parseYMDLocal(ymd) {
+      const [yy, mm, dd] = ymd.split('-').map(Number);
+      return new Date(yy, mm - 1, dd, 12, 0, 0); // local noon, DST-safe
+    }
+
+    // Month name (local)
+    function getMonthName(date) {
+      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    // Toast notification
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    // -------- Data loading --------
     async function loadArticles() {
       try {
         const response = await fetch('./articles.json');
@@ -86,50 +115,39 @@
       }
     }
 
-    // Save articles to localStorage (since we can't write to JSON file directly)
-
-    // Toast notification
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 3000);
-    }
-
-    // Format date as YYYY-MM-DD
-    function formatDate(date) {
-      return date.toISOString().split('T')[0];
-    }
-
-    // Get month name
-    function getMonthName(date) {
-      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    }
-
-    // Generate calendar
+    // -------- Calendar rendering (LOCAL) --------
     function generateCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-      
+
       document.getElementById('currentMonth').textContent = getMonthName(currentDate);
-      
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const startDate = new Date(firstDay);
-      startDate.setDate(startDate.getDate() - firstDay.getDay());
-      
+
+      const firstDay = new Date(year, month, 1);       // local
+      const firstDayDow = firstDay.getDay();           // 0=Sun..6=Sat (local)
+      const daysBack = firstDayDow;
+
+      let startDate;
+      if (daysBack === 0) {
+        startDate = new Date(year, month, 1);
+      } else {
+        const prevMonth = month - 1;
+        const prevYear = prevMonth < 0 ? year - 1 : year;
+        const prevMonthDays = new Date(prevYear, prevMonth + 1, 0).getDate();
+        startDate = new Date(prevYear, prevMonth, prevMonthDays - daysBack + 1);
+      }
+
       const grid = document.getElementById('calendarGrid');
       grid.innerHTML = '';
-      
+
       for (let i = 0; i < 42; i++) {
         const cellDate = new Date(startDate);
         cellDate.setDate(startDate.getDate() + i);
-        
-        const dateStr = formatDate(cellDate);
+
+        const dateStr = formatDateLocal(cellDate);
         const isCurrentMonth = cellDate.getMonth() === month;
-        const isToday = dateStr === formatDate(new Date());
+        const isToday = dateStr === formatDateLocal(new Date());
         const hasArticles = articles[dateStr] && articles[dateStr].length > 0;
-        
+
         const cell = document.createElement('div');
         cell.className = `
           relative min-h-[80px] p-2 rounded-lg border cursor-pointer transition-all duration-200
@@ -139,7 +157,7 @@
           }
           ${isToday ? 'ring-2 ring-[#52F756] ring-opacity-50' : ''}
         `;
-        
+
         cell.innerHTML = `
           <div class="font-semibold ${isToday ? 'text-[#52F756]' : 'text-[#dfe6ee]'}">${cellDate.getDate()}</div>
           ${hasArticles ? `
@@ -147,41 +165,41 @@
             <div class="text-xs text-[#9aa3ad] mt-1">${articles[dateStr].length} article${articles[dateStr].length > 1 ? 's' : ''}</div>
           ` : ''}
         `;
-        
-        cell.addEventListener('click', () => selectDate(formatDate(cellDate)));
+
+        cell.addEventListener('click', () => selectDate(dateStr));
         grid.appendChild(cell);
       }
     }
 
-    // Select a date and show articles
+    // -------- Selection & list --------
     function selectDate(dateStr) {
       selectedDateStr = dateStr;
-      const date = new Date(dateStr + 'T12:00:00');
+      const date = parseYMDLocal(dateStr); // local-safe
+
       const formattedDate = date.toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
       });
-      
+
       document.getElementById('selectedDate').textContent = formattedDate;
       document.getElementById('articlesSection').classList.remove('hidden');
-      
+
       displayArticles(dateStr);
     }
 
-    // Display articles for selected date
     function displayArticles(dateStr) {
       const articlesList = document.getElementById('articlesList');
       const noArticles = document.getElementById('noArticles');
       const dayArticles = articles[dateStr] || [];
-      
+
       if (dayArticles.length === 0) {
         articlesList.innerHTML = '';
         noArticles.classList.remove('hidden');
         return;
       }
-      
+
       noArticles.classList.add('hidden');
       articlesList.innerHTML = dayArticles.map((article, index) => `
         <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e] hover:border-[#52F756]/30 transition-all duration-200">
@@ -197,27 +215,12 @@
                 ${article.url}
               </a>
             </div>
-            <button onclick="removeArticle('${dateStr}', ${index})" class="ml-4 px-3 py-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-all duration-200">
-              ✕
-            </button>
           </div>
         </div>
       `).join('');
     }
 
-    // Remove article
-    function removeArticle(dateStr, index) {
-      if (confirm('Remove this article?')) {
-        articles[dateStr].splice(index, 1);
-        if (articles[dateStr].length === 0) {
-          delete articles[dateStr];
-        }
-        displayArticles(dateStr);
-        generateCalendar();
-      }
-    }
-
-    // Event listeners
+    // -------- Events & init --------
     document.getElementById('prevMonth').addEventListener('click', () => {
       currentDate.setMonth(currentDate.getMonth() - 1);
       generateCalendar();
@@ -228,7 +231,6 @@
       generateCalendar();
     });
 
-    // Initialize
     async function init() {
       await loadArticles();
       generateCalendar();
