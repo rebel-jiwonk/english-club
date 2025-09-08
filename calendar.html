@@ -27,9 +27,6 @@
         <a href="index.html" class="px-6 py-3 bg-[#2a313a] text-[#dfe6ee] rounded-xl hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450] hover:border-[#52F756]/30">
           ← Back to Signup
         </a>
-        <button id="addArticleBtn" class="px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-xl hover:bg-[#43c944] hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl">
-          + Add Article
-        </button>
       </div>
     </div>
 
@@ -65,44 +62,8 @@
         <div id="articlesList" class="space-y-4"></div>
         <div id="noArticles" class="text-center py-8 text-[#9aa3ad] hidden">
           <p class="text-lg mb-4">No articles for this day yet</p>
-          <button class="add-article-for-date px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-xl hover:bg-[#43c944] transition-all duration-200">
-            Add First Article
-          </button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Add Article Modal -->
-  <div id="addArticleModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
-    <div class="bg-[#14171c] rounded-2xl p-8 border border-[#22272e] shadow-2xl max-w-md w-full mx-4 fade-in">
-      <h3 class="text-2xl font-bold text-[#dfe6ee] mb-6">Add Article</h3>
-      <form id="addArticleForm" class="space-y-4">
-        <div>
-          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">Date</label>
-          <input type="date" id="articleDate" required class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors">
-        </div>
-        <div>
-          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">Title</label>
-          <input type="text" id="articleTitle" required placeholder="Article title" class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors">
-        </div>
-        <div>
-          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">URL</label>
-          <input type="url" id="articleUrl" required placeholder="https://example.com/article" class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors">
-        </div>
-        <div>
-          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">Description (optional)</label>
-          <textarea id="articleDescription" placeholder="Brief description of the article" rows="3" class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors resize-none"></textarea>
-        </div>
-        <div class="flex gap-4 pt-4">
-          <button type="submit" class="flex-1 px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-xl hover:bg-[#43c944] transition-all duration-200">
-            Add Article
-          </button>
-          <button type="button" id="cancelAdd" class="flex-1 px-6 py-3 bg-[#2a313a] text-[#dfe6ee] rounded-xl hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450]">
-            Cancel
-          </button>
-        </div>
-      </form>
     </div>
   </div>
 
@@ -126,19 +87,6 @@
     }
 
     // Save articles to localStorage (since we can't write to JSON file directly)
-    function saveArticles() {
-      localStorage.setItem('englishClubArticles', JSON.stringify({ articles }));
-      showToast('Article saved successfully!');
-    }
-
-    // Load articles from localStorage
-    function loadArticlesFromStorage() {
-      const stored = localStorage.getItem('englishClubArticles');
-      if (stored) {
-        const data = JSON.parse(stored);
-        articles = { ...articles, ...data.articles };
-      }
-    }
 
     // Toast notification
     function showToast(msg) {
@@ -200,7 +148,7 @@
           ` : ''}
         `;
         
-        cell.addEventListener('click', () => selectDate(dateStr));
+        cell.addEventListener('click', () => selectDate(formatDate(cellDate)));
         grid.appendChild(cell);
       }
     }
@@ -264,32 +212,9 @@
         if (articles[dateStr].length === 0) {
           delete articles[dateStr];
         }
-        saveArticles();
         displayArticles(dateStr);
         generateCalendar();
       }
-    }
-
-    // Modal controls
-    function showAddModal(dateStr = '') {
-      const modal = document.getElementById('addArticleModal');
-      const dateInput = document.getElementById('articleDate');
-      
-      if (dateStr) {
-        dateInput.value = dateStr;
-      } else if (selectedDateStr) {
-        dateInput.value = selectedDateStr;
-      } else {
-        dateInput.value = formatDate(new Date());
-      }
-      
-      modal.classList.remove('hidden');
-      document.getElementById('articleTitle').focus();
-    }
-
-    function hideAddModal() {
-      document.getElementById('addArticleModal').classList.add('hidden');
-      document.getElementById('addArticleForm').reset();
     }
 
     // Event listeners
@@ -303,59 +228,9 @@
       generateCalendar();
     });
 
-    document.getElementById('addArticleBtn').addEventListener('click', () => showAddModal());
-    document.getElementById('cancelAdd').addEventListener('click', hideAddModal);
-
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('add-article-for-date')) {
-        showAddModal(selectedDateStr);
-      }
-    });
-
-    document.getElementById('addArticleForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-      
-      const dateStr = document.getElementById('articleDate').value;
-      const title = document.getElementById('articleTitle').value.trim();
-      const url = document.getElementById('articleUrl').value.trim();
-      const description = document.getElementById('articleDescription').value.trim();
-      
-      if (!dateStr || !title || !url) {
-        showToast('Please fill in all required fields');
-        return;
-      }
-      
-      if (!articles[dateStr]) {
-        articles[dateStr] = [];
-      }
-      
-      articles[dateStr].push({
-        title,
-        url,
-        description: description || ''
-      });
-      
-      saveArticles();
-      hideAddModal();
-      
-      if (selectedDateStr === dateStr) {
-        displayArticles(dateStr);
-      }
-      
-      generateCalendar();
-    });
-
-    // Close modal on escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        hideAddModal();
-      }
-    });
-
     // Initialize
     async function init() {
       await loadArticles();
-      loadArticlesFromStorage();
       generateCalendar();
     }
 

@@ -1,22 +1,17 @@
 {
   "articles": {
-    "2025-01-15": [
+    "2025-09-08": [
       {
-        "title": "10 Essential English Phrases for Business",
-        "url": "https://example.com/business-phrases",
-        "description": "Learn key phrases for professional communication"
+        "title": "Will AI Choke off the Supply of Knowledge?",
+        "url": "https://www.wsj.com/tech/ai/will-ai-choke-off-the-supply-of-knowledge-8a71cbcd?st=oiBajQ&reflink=desktopwebshare_permalink",
+        "description": ""
       }
     ],
-    "2025-01-16": [
+    "2025-09-09": [
       {
-        "title": "Common Grammar Mistakes to Avoid",
-        "url": "https://example.com/grammar-mistakes",
-        "description": "Fix these frequent errors in your writing"
-      },
-      {
-        "title": "Pronunciation Tips for Non-Native Speakers",
-        "url": "https://example.com/pronunciation-tips",
-        "description": "Improve your English pronunciation with these techniques"
+        "title": "More Older Americans Are Aging Alone. Who Will Take Care of Them?",
+        "url": "https://www.wsj.com/health/wellness/more-older-americans-are-aging-alone-who-will-take-care-of-them-3e1e2c26?st=DHfSyT&reflink=desktopwebshare_permalink",
+        "description": ""
       }
     ]
   }
