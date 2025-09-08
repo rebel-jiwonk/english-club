@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <title>English Club - Article Calendar</title>
+  <style>
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+  </style>
+</head>
+<body class="bg-[#0b0c0f] text-[#f5f7fa] font-sans min-h-screen">
+  <div id="loading" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999] hidden">
+    <div class="w-16 h-16 border-4 border-gray-300 border-t-[#52F756] rounded-full animate-spin"></div>
+  </div>
+
+  <div class="container mx-auto p-6 max-w-7xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-[#52F756] to-[#43c944] bg-clip-text text-transparent">Article Calendar</h1>
+        <p class="text-[#9aa3ad] text-lg">Daily English learning resources</p>
+      </div>
+      <div class="flex gap-4">
+        <a href="index.html" class="px-6 py-3 bg-[#2a313a] text-[#dfe6ee] rounded-xl hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450] hover:border-[#52F756]/30">
+          ← Back to Signup
+        </a>
+        <button id="addArticleBtn" class="px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-xl hover:bg-[#43c944] hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl">
+          + Add Article
+        </button>
+      </div>
+    </div>
+
+    <!-- Calendar Navigation -->
+    <div class="flex items-center justify-between mb-6 bg-[#14171c] rounded-xl p-4 border border-[#22272e]">
+      <button id="prevMonth" class="px-4 py-2 bg-[#2a313a] text-[#dfe6ee] rounded-lg hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450]">
+        ← Previous
+      </button>
+      <h2 id="currentMonth" class="text-2xl font-bold text-[#dfe6ee]"></h2>
+      <button id="nextMonth" class="px-4 py-2 bg-[#2a313a] text-[#dfe6ee] rounded-lg hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450]">
+        Next →
+      </button>
+    </div>
+
+    <!-- Calendar Grid -->
+    <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e] shadow-2xl">
+      <div class="grid grid-cols-7 gap-2 mb-4">
+        <div class="text-center font-semibold text-[#9aa3ad] py-3">Sun</div>
+        <div class="text-center font-semibold text-[#9aa3ad] py-3">Mon</div>
+        <div class="text-center font-semibold text-[#9aa3ad] py-3">Tue</div>
+        <div class="text-center font-semibold text-[#9aa3ad] py-3">Wed</div>
+        <div class="text-center font-semibold text-[#9aa3ad] py-3">Thu</div>
+        <div class="text-center font-semibold text-[#9aa3ad] py-3">Fri</div>
+        <div class="text-center font-semibold text-[#9aa3ad] py-3">Sat</div>
+      </div>
+      <div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
+    </div>
+
+    <!-- Selected Day Articles -->
+    <div id="articlesSection" class="mt-8 hidden">
+      <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e] shadow-2xl">
+        <h3 id="selectedDate" class="text-2xl font-bold text-[#dfe6ee] mb-4"></h3>
+        <div id="articlesList" class="space-y-4"></div>
+        <div id="noArticles" class="text-center py-8 text-[#9aa3ad] hidden">
+          <p class="text-lg mb-4">No articles for this day yet</p>
+          <button class="add-article-for-date px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-xl hover:bg-[#43c944] transition-all duration-200">
+            Add First Article
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Article Modal -->
+  <div id="addArticleModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-[#14171c] rounded-2xl p-8 border border-[#22272e] shadow-2xl max-w-md w-full mx-4 fade-in">
+      <h3 class="text-2xl font-bold text-[#dfe6ee] mb-6">Add Article</h3>
+      <form id="addArticleForm" class="space-y-4">
+        <div>
+          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">Date</label>
+          <input type="date" id="articleDate" required class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors">
+        </div>
+        <div>
+          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">Title</label>
+          <input type="text" id="articleTitle" required placeholder="Article title" class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors">
+        </div>
+        <div>
+          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">URL</label>
+          <input type="url" id="articleUrl" required placeholder="https://example.com/article" class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors">
+        </div>
+        <div>
+          <label class="block text-[#9aa3ad] text-sm font-medium mb-2">Description (optional)</label>
+          <textarea id="articleDescription" placeholder="Brief description of the article" rows="3" class="w-full px-4 py-3 bg-[#0f1419] border border-[#22272e] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors resize-none"></textarea>
+        </div>
+        <div class="flex gap-4 pt-4">
+          <button type="submit" class="flex-1 px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-xl hover:bg-[#43c944] transition-all duration-200">
+            Add Article
+          </button>
+          <button type="button" id="cancelAdd" class="flex-1 px-6 py-3 bg-[#2a313a] text-[#dfe6ee] rounded-xl hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450]">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden shadow-lg"></div>
+
+  <script>
+    let articles = {};
+    let currentDate = new Date();
+    let selectedDateStr = '';
+
+    // Load articles from JSON
+    async function loadArticles() {
+      try {
+        const response = await fetch('./articles.json');
+        const data = await response.json();
+        articles = data.articles || {};
+      } catch (error) {
+        console.error('Failed to load articles:', error);
+        articles = {};
+      }
+    }
+
+    // Save articles to localStorage (since we can't write to JSON file directly)
+    function saveArticles() {
+      localStorage.setItem('englishClubArticles', JSON.stringify({ articles }));
+      showToast('Article saved successfully!');
+    }
+
+    // Load articles from localStorage
+    function loadArticlesFromStorage() {
+      const stored = localStorage.getItem('englishClubArticles');
+      if (stored) {
+        const data = JSON.parse(stored);
+        articles = { ...articles, ...data.articles };
+      }
+    }
+
+    // Toast notification
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    // Format date as YYYY-MM-DD
+    function formatDate(date) {
+      return date.toISOString().split('T')[0];
+    }
+
+    // Get month name
+    function getMonthName(date) {
+      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    // Generate calendar
+    function generateCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      
+      document.getElementById('currentMonth').textContent = getMonthName(currentDate);
+      
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDate = new Date(firstDay);
+      startDate.setDate(startDate.getDate() - firstDay.getDay());
+      
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+      
+      for (let i = 0; i < 42; i++) {
+        const cellDate = new Date(startDate);
+        cellDate.setDate(startDate.getDate() + i);
+        
+        const dateStr = formatDate(cellDate);
+        const isCurrentMonth = cellDate.getMonth() === month;
+        const isToday = dateStr === formatDate(new Date());
+        const hasArticles = articles[dateStr] && articles[dateStr].length > 0;
+        
+        const cell = document.createElement('div');
+        cell.className = `
+          relative min-h-[80px] p-2 rounded-lg border cursor-pointer transition-all duration-200
+          ${isCurrentMonth 
+            ? 'bg-[#1a1f26] border-[#2a313a] hover:border-[#52F756]/50 hover:bg-[#1f242b]' 
+            : 'bg-[#0f1419] border-[#1a1f26] text-[#6b7280]'
+          }
+          ${isToday ? 'ring-2 ring-[#52F756] ring-opacity-50' : ''}
+        `;
+        
+        cell.innerHTML = `
+          <div class="font-semibold ${isToday ? 'text-[#52F756]' : 'text-[#dfe6ee]'}">${cellDate.getDate()}</div>
+          ${hasArticles ? `
+            <div class="absolute top-1 right-1 w-2 h-2 bg-[#52F756] rounded-full"></div>
+            <div class="text-xs text-[#9aa3ad] mt-1">${articles[dateStr].length} article${articles[dateStr].length > 1 ? 's' : ''}</div>
+          ` : ''}
+        `;
+        
+        cell.addEventListener('click', () => selectDate(dateStr));
+        grid.appendChild(cell);
+      }
+    }
+
+    // Select a date and show articles
+    function selectDate(dateStr) {
+      selectedDateStr = dateStr;
+      const date = new Date(dateStr + 'T00:00:00');
+      const formattedDate = date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      
+      document.getElementById('selectedDate').textContent = formattedDate;
+      document.getElementById('articlesSection').classList.remove('hidden');
+      
+      displayArticles(dateStr);
+    }
+
+    // Display articles for selected date
+    function displayArticles(dateStr) {
+      const articlesList = document.getElementById('articlesList');
+      const noArticles = document.getElementById('noArticles');
+      const dayArticles = articles[dateStr] || [];
+      
+      if (dayArticles.length === 0) {
+        articlesList.innerHTML = '';
+        noArticles.classList.remove('hidden');
+        return;
+      }
+      
+      noArticles.classList.add('hidden');
+      articlesList.innerHTML = dayArticles.map((article, index) => `
+        <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e] hover:border-[#52F756]/30 transition-all duration-200">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <h4 class="font-semibold text-[#dfe6ee] mb-2">
+                <a href="${article.url}" target="_blank" class="hover:text-[#52F756] transition-colors">
+                  ${article.title}
+                </a>
+              </h4>
+              ${article.description ? `<p class="text-[#9aa3ad] text-sm mb-2">${article.description}</p>` : ''}
+              <a href="${article.url}" target="_blank" class="text-[#52F756] text-sm hover:underline">
+                ${article.url}
+              </a>
+            </div>
+            <button onclick="removeArticle('${dateStr}', ${index})" class="ml-4 px-3 py-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-all duration-200">
+              ✕
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Remove article
+    function removeArticle(dateStr, index) {
+      if (confirm('Remove this article?')) {
+        articles[dateStr].splice(index, 1);
+        if (articles[dateStr].length === 0) {
+          delete articles[dateStr];
+        }
+        saveArticles();
+        displayArticles(dateStr);
+        generateCalendar();
+      }
+    }
+
+    // Modal controls
+    function showAddModal(dateStr = '') {
+      const modal = document.getElementById('addArticleModal');
+      const dateInput = document.getElementById('articleDate');
+      
+      if (dateStr) {
+        dateInput.value = dateStr;
+      } else if (selectedDateStr) {
+        dateInput.value = selectedDateStr;
+      } else {
+        dateInput.value = formatDate(new Date());
+      }
+      
+      modal.classList.remove('hidden');
+      document.getElementById('articleTitle').focus();
+    }
+
+    function hideAddModal() {
+      document.getElementById('addArticleModal').classList.add('hidden');
+      document.getElementById('addArticleForm').reset();
+    }
+
+    // Event listeners
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      generateCalendar();
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      generateCalendar();
+    });
+
+    document.getElementById('addArticleBtn').addEventListener('click', () => showAddModal());
+    document.getElementById('cancelAdd').addEventListener('click', hideAddModal);
+
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('add-article-for-date')) {
+        showAddModal(selectedDateStr);
+      }
+    });
+
+    document.getElementById('addArticleForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const dateStr = document.getElementById('articleDate').value;
+      const title = document.getElementById('articleTitle').value.trim();
+      const url = document.getElementById('articleUrl').value.trim();
+      const description = document.getElementById('articleDescription').value.trim();
+      
+      if (!dateStr || !title || !url) {
+        showToast('Please fill in all required fields');
+        return;
+      }
+      
+      if (!articles[dateStr]) {
+        articles[dateStr] = [];
+      }
+      
+      articles[dateStr].push({
+        title,
+        url,
+        description: description || ''
+      });
+      
+      saveArticles();
+      hideAddModal();
+      
+      if (selectedDateStr === dateStr) {
+        displayArticles(dateStr);
+      }
+      
+      generateCalendar();
+    });
+
+    // Close modal on escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        hideAddModal();
+      }
+    });
+
+    // Initialize
+    async function init() {
+      await loadArticles();
+      loadArticlesFromStorage();
+      generateCalendar();
+    }
+
+    init();
+  </script>
+</body>
+</html>

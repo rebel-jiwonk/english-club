@@ -1,0 +1,23 @@
+{
+  "articles": {
+    "2025-01-15": [
+      {
+        "title": "10 Essential English Phrases for Business",
+        "url": "https://example.com/business-phrases",
+        "description": "Learn key phrases for professional communication"
+      }
+    ],
+    "2025-01-16": [
+      {
+        "title": "Common Grammar Mistakes to Avoid",
+        "url": "https://example.com/grammar-mistakes",
+        "description": "Fix these frequent errors in your writing"
+      },
+      {
+        "title": "Pronunciation Tips for Non-Native Speakers",
+        "url": "https://example.com/pronunciation-tips",
+        "description": "Improve your English pronunciation with these techniques"
+      }
+    ]
+  }
+}
