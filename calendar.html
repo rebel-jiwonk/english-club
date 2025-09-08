@@ -156,7 +156,7 @@
     // Select a date and show articles
     function selectDate(dateStr) {
       selectedDateStr = dateStr;
-      const date = new Date(dateStr + 'T00:00:00');
+      const date = new Date(dateStr + 'T12:00:00');
       const formattedDate = date.toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
