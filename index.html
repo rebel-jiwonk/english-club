@@ -112,19 +112,26 @@
   }
 
   // === FETCH signups from your endpoint shape ===
-  async function fetchSignups() {
-    // doGet returns: { currentWeek, weeks, byWeek }
-    const data = await jsonp(`${API_URL}?action=signups`);
-    console.log("Fetched data:", data);
-    if (!data || !data.byWeek) return { currentWeek: null, weeks: [], rows: [] };
+async function fetchSignups() {
+  // doGet returns: { currentWeek, weeks, byWeek }
+  const data = await jsonp(`${API_URL}?action=signups`);
+  console.log("Fetched data:", data);
 
-    // Prefer next week (WEEK_ISO); if missing, fall back to currentWeek
-    const weekKey = data.byWeek[WEEK_ISO] ? WEEK_ISO : data.currentWeek;
-    const rowsForWeek = (data.byWeek[weekKey] || []).map(r => ({
-      timestamp: r.timestamp, week: r.week, slot: r.slot, name: r.name, email: r.email || ''
-    }));
-    return { currentWeek: weekKey, weeks: data.weeks, rows: rowsForWeek };
+  // Always target next week (WEEK_ISO). If missing, show empty rows.
+  if (!data || !data.byWeek) {
+    return { currentWeek: WEEK_ISO, weeks: [], rows: [] };
   }
+
+  const rowsForWeek = (data.byWeek[WEEK_ISO] || []).map(r => ({
+    timestamp: r.timestamp,
+    week: r.week,
+    slot: r.slot,
+    name: r.name,
+    email: r.email || ''
+  }));
+
+  return { currentWeek: WEEK_ISO, weeks: data.weeks || [], rows: rowsForWeek };
+}
   function normSlot(s) {
   return (s || "")
     .replace(/\u2013/g, "-")   // en dash → hyphen
