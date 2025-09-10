@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <title>English Club - Challenge Dashboard</title>
+  <style>
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+  </style>
+</head>
+<body class="bg-[#0b0c0f] text-[#f5f7fa] font-sans min-h-screen">
+  <div id="loading" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999] hidden">
+    <div class="w-16 h-16 border-4 border-gray-300 border-t-[#52F756] rounded-full animate-spin"></div>
+  </div>
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-[#14171c] rounded-2xl p-8 border border-[#22272e] shadow-2xl">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold mb-2 bg-gradient-to-r from-[#52F756] to-[#43c944] bg-clip-text text-transparent">Challenge Dashboard</h1>
+        <p class="text-[#9aa3ad]">Track your daily English learning journey</p>
+      </div>
+      
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-[#dfe6ee] mb-2">Email</label>
+          <input type="email" id="emailInput" required 
+                 class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors"
+                 placeholder="Enter your email">
+        </div>
+        <button type="submit" 
+                class="w-full px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-lg hover:bg-[#43c944] transition-all duration-200 shadow-lg hover:shadow-xl">
+          Enter Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div id="dashboard" class="hidden">
+    <div class="container mx-auto p-6 max-w-7xl">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-[#52F756] to-[#43c944] bg-clip-text text-transparent">Challenge Dashboard</h1>
+          <p class="text-[#9aa3ad] text-lg">Welcome back, <span id="userEmail" class="text-[#52F756] font-semibold"></span></p>
+          <p class="text-[#9aa3ad] text-sm mt-1">Challenge ends: <span class="text-[#dfe6ee] font-semibold">December 5, 2025</span> · <span id="daysLeft" class="text-[#52F756] font-semibold"></span> days left</p>
+        </div>
+        <div class="flex gap-4">
+          <a href="index.html" class="px-4 py-2 bg-[#2a313a] text-[#dfe6ee] rounded-lg hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450]">
+            ← Back to Signup
+          </a>
+          <button id="logoutBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200">
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-[#14171c] rounded-xl p-6 border border-[#22272e]">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-[#9aa3ad] text-sm">Your Streak</p>
+              <p class="text-3xl font-bold text-[#52F756]" id="userStreak">0</p>
+            </div>
+            <div class="text-4xl">🔥</div>
+          </div>
+        </div>
+        <div class="bg-[#14171c] rounded-xl p-6 border border-[#22272e]">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-[#9aa3ad] text-sm">Total Logs</p>
+              <p class="text-3xl font-bold text-[#dfe6ee]" id="userTotalLogs">0</p>
+            </div>
+            <div class="text-4xl">📚</div>
+          </div>
+        </div>
+        <div class="bg-[#14171c] rounded-xl p-6 border border-[#22272e]">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-[#9aa3ad] text-sm">Rank</p>
+              <p class="text-3xl font-bold text-[#dfe6ee]" id="userRank">#1</p>
+            </div>
+            <div class="text-4xl">🏆</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Calendar and Log Today -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Calendar -->
+        <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e]">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-[#dfe6ee]">Calendar</h2>
+            <div class="flex gap-2">
+              <button id="prevMonth" class="px-3 py-1 bg-[#2a313a] text-[#dfe6ee] rounded hover:bg-[#3a4450] transition-all">←</button>
+              <button id="nextMonth" class="px-3 py-1 bg-[#2a313a] text-[#dfe6ee] rounded hover:bg-[#3a4450] transition-all">→</button>
+            </div>
+          </div>
+          <div class="text-center mb-4">
+            <h3 id="currentMonth" class="text-lg font-semibold text-[#dfe6ee]"></h3>
+          </div>
+          <div class="grid grid-cols-7 gap-1 mb-2">
+            <div class="text-center text-xs text-[#9aa3ad] py-2">Sun</div>
+            <div class="text-center text-xs text-[#9aa3ad] py-2">Mon</div>
+            <div class="text-center text-xs text-[#9aa3ad] py-2">Tue</div>
+            <div class="text-center text-xs text-[#9aa3ad] py-2">Wed</div>
+            <div class="text-center text-xs text-[#9aa3ad] py-2">Thu</div>
+            <div class="text-center text-xs text-[#9aa3ad] py-2">Fri</div>
+            <div class="text-center text-xs text-[#9aa3ad] py-2">Sat</div>
+          </div>
+          <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+        </div>
+
+        <!-- Log Today -->
+        <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e]">
+          <h2 class="text-xl font-bold text-[#dfe6ee] mb-4">Log Today</h2>
+          <div id="todayLogForm">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-[#dfe6ee] mb-2">What did you study today?</label>
+              <textarea id="studyText" rows="4" 
+                        class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors resize-none"
+                        placeholder="Describe what you learned or practiced today..."></textarea>
+            </div>
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-[#dfe6ee] mb-2">Upload Photo (Optional)</label>
+              <input type="file" id="photoInput" accept="image/*" 
+                     class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[#52F756] file:text-[#031b06] file:font-semibold hover:file:bg-[#43c944]">
+            </div>
+            <button id="logTodayBtn" 
+                    class="w-full px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-lg hover:bg-[#43c944] transition-all duration-200 shadow-lg hover:shadow-xl">
+              Log Today's Study
+            </button>
+          </div>
+          <div id="todayLoggedMessage" class="hidden text-center py-8">
+            <div class="text-4xl mb-2">✅</div>
+            <p class="text-[#52F756] font-semibold">Already logged today!</p>
+            <p class="text-[#9aa3ad] text-sm mt-1">Come back tomorrow to continue your streak</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Community Feed -->
+        <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e]">
+          <h2 class="text-xl font-bold text-[#dfe6ee] mb-4">Community Feed</h2>
+          <div id="communityFeed" class="space-y-4 max-h-96 overflow-y-auto"></div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e]">
+          <h2 class="text-xl font-bold text-[#dfe6ee] mb-4">Leaderboard</h2>
+          <div id="leaderboard" class="space-y-3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden shadow-lg"></div>
+
+  <script>
+    // ======= CONFIG & DATA =======
+    let currentUser = null;
+    let currentDate = new Date();
+    let challengeData = {
+      users: [
+        { email: 'alice@example.com', name: 'Alice Johnson', streak: 15, totalLogs: 18 },
+        { email: 'bob@example.com', name: 'Bob Smith', streak: 12, totalLogs: 15 },
+        { email: 'carol@example.com', name: 'Carol Davis', streak: 8, totalLogs: 12 },
+        { email: 'david@example.com', name: 'David Wilson', streak: 6, totalLogs: 10 },
+        { email: 'emma@example.com', name: 'Emma Brown', streak: 4, totalLogs: 8 }
+      ],
+      logs: [
+        { email: 'alice@example.com', date: '2025-01-15', text: 'Practiced pronunciation with tongue twisters', photo: null },
+        { email: 'bob@example.com', date: '2025-01-15', text: 'Read WSJ article about AI and took notes', photo: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzM3NDE1MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vdGVzIFBob3RvPC90ZXh0Pjwvc3ZnPg==' },
+        { email: 'carol@example.com', date: '2025-01-14', text: 'Watched English podcast and summarized key points', photo: null },
+        { email: 'alice@example.com', date: '2025-01-14', text: 'Grammar exercises - past perfect tense', photo: null },
+        { email: 'david@example.com', date: '2025-01-14', text: 'Vocabulary building - 20 new business terms', photo: null }
+      ]
+    };
+
+    const challengeEndDate = new Date('2025-12-05');
+
+    // ======= HELPERS =======
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    function formatDateLocal(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function getDaysLeft() {
+      const today = new Date();
+      const diffTime = challengeEndDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return Math.max(0, diffDays);
+    }
+
+    function calculateStreak(email) {
+      const userLogs = challengeData.logs
+        .filter(log => log.email === email)
+        .map(log => log.date)
+        .sort()
+        .reverse();
+
+      if (userLogs.length === 0) return 0;
+
+      let streak = 0;
+      const today = formatDateLocal(new Date());
+      let checkDate = new Date();
+
+      // Check if logged today, if not start from yesterday
+      if (!userLogs.includes(today)) {
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+
+      while (true) {
+        const dateStr = formatDateLocal(checkDate);
+        if (userLogs.includes(dateStr)) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      return streak;
+    }
+
+    function hasLoggedToday(email) {
+      const today = formatDateLocal(new Date());
+      return challengeData.logs.some(log => log.email === email && log.date === today);
+    }
+
+    // ======= LOGIN =======
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('emailInput').value.trim();
+      if (!email) return;
+
+      // Find or create user
+      let user = challengeData.users.find(u => u.email === email);
+      if (!user) {
+        const name = email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1);
+        user = { email, name, streak: 0, totalLogs: 0 };
+        challengeData.users.push(user);
+      }
+
+      currentUser = user;
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      
+      initDashboard();
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      currentUser = null;
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('dashboard').classList.add('hidden');
+      document.getElementById('emailInput').value = '';
+    });
+
+    // ======= DASHBOARD =======
+    function initDashboard() {
+      document.getElementById('userEmail').textContent = currentUser.email;
+      document.getElementById('daysLeft').textContent = getDaysLeft();
+      
+      updateStats();
+      generateCalendar();
+      updateTodayLogForm();
+      updateCommunityFeed();
+      updateLeaderboard();
+    }
+
+    function updateStats() {
+      const streak = calculateStreak(currentUser.email);
+      const totalLogs = challengeData.logs.filter(log => log.email === currentUser.email).length;
+      
+      // Update user data
+      currentUser.streak = streak;
+      currentUser.totalLogs = totalLogs;
+      
+      document.getElementById('userStreak').textContent = streak;
+      document.getElementById('userTotalLogs').textContent = totalLogs;
+      
+      // Calculate rank
+      const sortedUsers = [...challengeData.users].sort((a, b) => {
+        const aStreak = calculateStreak(a.email);
+        const bStreak = calculateStreak(b.email);
+        if (aStreak !== bStreak) return bStreak - aStreak;
+        return b.totalLogs - a.totalLogs;
+      });
+      
+      const rank = sortedUsers.findIndex(u => u.email === currentUser.email) + 1;
+      document.getElementById('userRank').textContent = `#${rank}`;
+    }
+
+    // ======= CALENDAR =======
+    function generateCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      document.getElementById('currentMonth').textContent = 
+        currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      const firstDay = new Date(year, month, 1);
+      const firstDayDow = firstDay.getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      // Empty cells for days before month starts
+      for (let i = 0; i < firstDayDow; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'h-8';
+        grid.appendChild(cell);
+      }
+
+      // Days of the month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cellDate = new Date(year, month, day);
+        const dateStr = formatDateLocal(cellDate);
+        const isToday = dateStr === formatDateLocal(new Date());
+        const hasLog = challengeData.logs.some(log => log.email === currentUser.email && log.date === dateStr);
+
+        const cell = document.createElement('div');
+        cell.className = `
+          h-8 flex items-center justify-center text-sm rounded cursor-pointer transition-all
+          ${isToday ? 'bg-[#52F756] text-[#031b06] font-bold' : 'text-[#dfe6ee] hover:bg-[#2a313a]'}
+          ${hasLog ? 'ring-2 ring-[#52F756] ring-opacity-50' : ''}
+        `;
+        cell.textContent = day;
+
+        if (hasLog) {
+          const dot = document.createElement('div');
+          dot.className = 'absolute w-1 h-1 bg-[#52F756] rounded-full mt-5 ml-5';
+          cell.style.position = 'relative';
+          cell.appendChild(dot);
+        }
+
+        if (isToday) {
+          cell.addEventListener('click', () => {
+            document.getElementById('studyText').focus();
+          });
+        }
+
+        grid.appendChild(cell);
+      }
+    }
+
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      generateCalendar();
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      generateCalendar();
+    });
+
+    // ======= LOG TODAY =======
+    function updateTodayLogForm() {
+      const loggedToday = hasLoggedToday(currentUser.email);
+      
+      if (loggedToday) {
+        document.getElementById('todayLogForm').classList.add('hidden');
+        document.getElementById('todayLoggedMessage').classList.remove('hidden');
+      } else {
+        document.getElementById('todayLogForm').classList.remove('hidden');
+        document.getElementById('todayLoggedMessage').classList.add('hidden');
+      }
+    }
+
+    document.getElementById('logTodayBtn').addEventListener('click', async () => {
+      const studyText = document.getElementById('studyText').value.trim();
+      const photoInput = document.getElementById('photoInput');
+      
+      if (!studyText) {
+        showToast('Please describe what you studied today');
+        return;
+      }
+
+      let photoData = null;
+      if (photoInput.files[0]) {
+        photoData = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(photoInput.files[0]);
+        });
+      }
+
+      const today = formatDateLocal(new Date());
+      const newLog = {
+        email: currentUser.email,
+        date: today,
+        text: studyText,
+        photo: photoData
+      };
+
+      challengeData.logs.push(newLog);
+      
+      // Clear form
+      document.getElementById('studyText').value = '';
+      document.getElementById('photoInput').value = '';
+      
+      showToast('Study logged successfully! 🎉');
+      
+      // Update UI
+      updateStats();
+      generateCalendar();
+      updateTodayLogForm();
+      updateCommunityFeed();
+      updateLeaderboard();
+    });
+
+    // ======= COMMUNITY FEED =======
+    function updateCommunityFeed() {
+      const feed = document.getElementById('communityFeed');
+      const recentLogs = challengeData.logs
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 10);
+
+      feed.innerHTML = recentLogs.map(log => {
+        const user = challengeData.users.find(u => u.email === log.email);
+        const userName = user ? user.name : log.email.split('@')[0];
+        const date = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        });
+
+        return `
+          <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e]">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-[#52F756] rounded-full flex items-center justify-center text-[#031b06] font-bold text-sm">
+                  ${userName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p class="font-semibold text-[#dfe6ee] text-sm">${userName}</p>
+                  <p class="text-[#9aa3ad] text-xs">${date}</p>
+                </div>
+              </div>
+            </div>
+            <p class="text-[#dfe6ee] text-sm mb-2">${log.text}</p>
+            ${log.photo ? `
+              <img src="${log.photo}" alt="Study material" 
+                   class="w-full max-w-xs rounded-lg border border-[#2a313a] cursor-pointer hover:opacity-80 transition-opacity"
+                   onclick="window.open(this.src, '_blank')">
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ======= LEADERBOARD =======
+    function updateLeaderboard() {
+      const leaderboard = document.getElementById('leaderboard');
+      const sortedUsers = [...challengeData.users]
+        .map(user => ({
+          ...user,
+          streak: calculateStreak(user.email),
+          totalLogs: challengeData.logs.filter(log => log.email === user.email).length
+        }))
+        .sort((a, b) => {
+          if (a.streak !== b.streak) return b.streak - a.streak;
+          return b.totalLogs - a.totalLogs;
+        })
+        .slice(0, 10);
+
+      leaderboard.innerHTML = sortedUsers.map((user, index) => {
+        const isCurrentUser = user.email === currentUser.email;
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+
+        return `
+          <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-[#52F756]/10 border border-[#52F756]/30' : 'bg-[#0f1419] border border-[#22272e]'}">
+            <div class="flex items-center gap-3">
+              <span class="text-lg font-bold ${index < 3 ? '' : 'text-[#9aa3ad]'}">${medal}</span>
+              <div>
+                <p class="font-semibold text-[#dfe6ee] text-sm">${user.name}</p>
+                <p class="text-[#9aa3ad] text-xs">${user.totalLogs} total logs</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="font-bold text-[#52F756]">${user.streak}</p>
+              <p class="text-[#9aa3ad] text-xs">day streak</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
