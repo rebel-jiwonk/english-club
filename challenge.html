@@ -562,6 +562,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ======= IMAGE PREVIEW (with HEIC support) =======
+
+let modalObjectUrl = null;
+
 const imgModal    = document.getElementById('imgModal');
 const modalImg    = document.getElementById('modalImg');
 const modalClose  = document.getElementById('modalClose');
@@ -580,15 +583,24 @@ function hideLoader() {
 }
 
 function closeImagePreview() {
-  // reset both states so next open starts clean
-  if (modalLoader) modalLoader.classList.remove('hidden');
+  // stop future events from firing a stale onerror
+  modalImg.onerror = null;
+  modalImg.onload  = null;
+
+  // cleanup any object URL
+  if (modalObjectUrl) {
+    URL.revokeObjectURL(modalObjectUrl);
+    modalObjectUrl = null;
+  }
+
+  // reset UI
   modalImg.src = '';
   modalImg.classList.add('hidden');
+  if (modalLoader) modalLoader.classList.remove('hidden');
 
   imgModal.classList.add('hidden');
   imgModal.classList.remove('flex');
 }
-
 modalClose.addEventListener('click', closeImagePreview);
 imgModal.addEventListener('click', (e) => { if (e.target === imgModal) closeImagePreview(); });
 document.addEventListener('keydown', (e) => { if (!imgModal.classList.contains('hidden') && e.key === 'Escape') closeImagePreview(); });
