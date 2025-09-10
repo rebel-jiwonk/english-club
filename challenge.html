@@ -10,6 +10,10 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .fade-in { animation: fadeIn 0.3s ease-out; }
   </style>
+  <script type="module">
+    import { supabase, signInAnonymously, createOrGetUser, logStudyEntry, getUserLogs, getAllUsers, getRecentLogs, getUserStats } from './lib/supabase.js';
+    window.supabaseUtils = { supabase, signInAnonymously, createOrGetUser, logStudyEntry, getUserLogs, getAllUsers, getRecentLogs, getUserStats };
+  </script>
 </head>
 <body class="bg-[#0b0c0f] text-[#f5f7fa] font-sans min-h-screen">
   <div id="loading" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999] hidden">
@@ -164,25 +168,13 @@
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden shadow-lg"></div>
 
   <script>
-    // ======= CONFIG & DATA =======
+    // ======= CONFIG =======
     let currentUser = null;
+    let currentUserId = null;
     let currentDate = new Date();
-    let challengeData = {
-      users: [
-        { email: 'alice@example.com', name: 'Alice Johnson', streak: 15, totalLogs: 18 },
-        { email: 'bob@example.com', name: 'Bob Smith', streak: 12, totalLogs: 15 },
-        { email: 'carol@example.com', name: 'Carol Davis', streak: 8, totalLogs: 12 },
-        { email: 'david@example.com', name: 'David Wilson', streak: 6, totalLogs: 10 },
-        { email: 'emma@example.com', name: 'Emma Brown', streak: 4, totalLogs: 8 }
-      ],
-      logs: [
-        { email: 'alice@example.com', date: '2025-01-15', text: 'Practiced pronunciation with tongue twisters', photo: null },
-        { email: 'bob@example.com', date: '2025-01-15', text: 'Read WSJ article about AI and took notes', photo: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzM3NDE1MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vdGVzIFBob3RvPC90ZXh0Pjwvc3ZnPg==' },
-        { email: 'carol@example.com', date: '2025-01-14', text: 'Watched English podcast and summarized key points', photo: null },
-        { email: 'alice@example.com', date: '2025-01-14', text: 'Grammar exercises - past perfect tense', photo: null },
-        { email: 'david@example.com', date: '2025-01-14', text: 'Vocabulary building - 20 new business terms', photo: null }
-      ]
-    };
+    let allUsers = [];
+    let userLogs = [];
+    let recentLogs = [];
 
     const challengeEndDate = new Date('2025-12-05');
 
@@ -208,61 +200,39 @@
       return Math.max(0, diffDays);
     }
 
-    function calculateStreak(email) {
-      const userLogs = challengeData.logs
-        .filter(log => log.email === email)
-        .map(log => log.date)
-        .sort()
-        .reverse();
-
-      if (userLogs.length === 0) return 0;
-
-      let streak = 0;
+    function hasLoggedToday() {
       const today = formatDateLocal(new Date());
-      let checkDate = new Date();
-
-      // Check if logged today, if not start from yesterday
-      if (!userLogs.includes(today)) {
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-
-      while (true) {
-        const dateStr = formatDateLocal(checkDate);
-        if (userLogs.includes(dateStr)) {
-          streak++;
-          checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-          break;
-        }
-      }
-
-      return streak;
-    }
-
-    function hasLoggedToday(email) {
-      const today = formatDateLocal(new Date());
-      return challengeData.logs.some(log => log.email === email && log.date === today);
+      return userLogs.some(log => log.date === today);
     }
 
     // ======= LOGIN =======
-    document.getElementById('loginForm').addEventListener('submit', (e) => {
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('emailInput').value.trim();
       if (!email) return;
 
-      // Find or create user
-      let user = challengeData.users.find(u => u.email === email);
-      if (!user) {
+      showLoading();
+      try {
+        // Sign in anonymously with email metadata
+        await window.supabaseUtils.signInAnonymously(email);
+        
+        // Create or get user
         const name = email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1);
-        user = { email, name, streak: 0, totalLogs: 0 };
-        challengeData.users.push(user);
+        const user = await window.supabaseUtils.createOrGetUser(email, name);
+        
+        currentUser = user;
+        currentUserId = user.id;
+        
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('dashboard').classList.remove('hidden');
+        
+        await initDashboard();
+      } catch (error) {
+        console.error('Login error:', error);
+        showToast('Login failed. Please try again.');
+      } finally {
+        hideLoading();
       }
-
-      currentUser = user;
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('dashboard').classList.remove('hidden');
-      
-      initDashboard();
     });
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -273,20 +243,66 @@
     });
 
     // ======= DASHBOARD =======
-    function initDashboard() {
+    async function initDashboard() {
       document.getElementById('userEmail').textContent = currentUser.email;
       document.getElementById('daysLeft').textContent = getDaysLeft();
       
-      updateStats();
+      await loadData();
+      await updateStats();
       generateCalendar();
       updateTodayLogForm();
-      updateCommunityFeed();
-      updateLeaderboard();
+      await updateCommunityFeed();
+      await updateLeaderboard();
     }
 
-    function updateStats() {
-      const streak = calculateStreak(currentUser.email);
-      const totalLogs = challengeData.logs.filter(log => log.email === currentUser.email).length;
+    async function loadData() {
+      try {
+        [allUsers, userLogs, recentLogs] = await Promise.all([
+          window.supabaseUtils.getAllUsers(),
+          window.supabaseUtils.getUserLogs(currentUserId),
+          window.supabaseUtils.getRecentLogs(10)
+        ]);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        showToast('Error loading data');
+      }
+    }
+
+    async function updateStats() {
+      try {
+        const stats = await window.supabaseUtils.getUserStats(currentUserId);
+        const { streak, totalLogs } = stats;
+        
+        document.getElementById('userStreak').textContent = streak;
+        document.getElementById('userTotalLogs').textContent = totalLogs;
+        
+        // Calculate rank
+        const allUsersWithStats = await Promise.all(
+          allUsers.map(async (user) => {
+            const userStats = await window.supabaseUtils.getUserStats(user.id);
+            return { ...user, ...userStats };
+          })
+        );
+        
+        const sortedUsers = allUsersWithStats.sort((a, b) => {
+          if (a.streak !== b.streak) return b.streak - a.streak;
+          return b.totalLogs - a.totalLogs;
+        });
+        
+        const rank = sortedUsers.findIndex(u => u.id === currentUserId) + 1;
+        document.getElementById('userRank').textContent = `#${rank}`;
+      } catch (error) {
+        console.error('Error updating stats:', error);
+      }
+    }
+
+    function showLoading() {
+      document.getElementById('loading').classList.remove('hidden');
+    }
+
+    function hideLoading() {
+      document.getElementById('loading').classList.add('hidden');
+    }
       
       // Update user data
       currentUser.streak = streak;
@@ -334,7 +350,7 @@
         const cellDate = new Date(year, month, day);
         const dateStr = formatDateLocal(cellDate);
         const isToday = dateStr === formatDateLocal(new Date());
-        const hasLog = challengeData.logs.some(log => log.email === currentUser.email && log.date === dateStr);
+        const hasLog = userLogs.some(log => log.date === dateStr);
 
         const cell = document.createElement('div');
         cell.className = `
@@ -373,7 +389,7 @@
 
     // ======= LOG TODAY =======
     function updateTodayLogForm() {
-      const loggedToday = hasLoggedToday(currentUser.email);
+      const loggedToday = hasLoggedToday();
       
       if (loggedToday) {
         document.getElementById('todayLogForm').classList.add('hidden');
@@ -393,50 +409,46 @@
         return;
       }
 
-      let photoData = null;
-      if (photoInput.files[0]) {
-        photoData = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.readAsDataURL(photoInput.files[0]);
-        });
+      showLoading();
+      try {
+        const today = formatDateLocal(new Date());
+        const photoFile = photoInput.files[0] || null;
+        
+        await window.supabaseUtils.logStudyEntry(currentUserId, today, studyText, photoFile);
+        
+        // Clear form
+        document.getElementById('studyText').value = '';
+        document.getElementById('photoInput').value = '';
+        
+        showToast('Study logged successfully! 🎉');
+        
+        // Reload data and update UI
+        await loadData();
+        await updateStats();
+        generateCalendar();
+        updateTodayLogForm();
+        await updateCommunityFeed();
+        await updateLeaderboard();
+      } catch (error) {
+        console.error('Error logging study:', error);
+        showToast('Failed to log study. Please try again.');
+      } finally {
+        hideLoading();
       }
-
-      const today = formatDateLocal(new Date());
-      const newLog = {
-        email: currentUser.email,
-        date: today,
-        text: studyText,
-        photo: photoData
-      };
-
-      challengeData.logs.push(newLog);
-      
-      // Clear form
-      document.getElementById('studyText').value = '';
-      document.getElementById('photoInput').value = '';
-      
-      showToast('Study logged successfully! 🎉');
-      
-      // Update UI
-      updateStats();
-      generateCalendar();
-      updateTodayLogForm();
-      updateCommunityFeed();
-      updateLeaderboard();
     });
 
     // ======= COMMUNITY FEED =======
-    function updateCommunityFeed() {
+    async function updateCommunityFeed() {
       const feed = document.getElementById('communityFeed');
-      const recentLogs = challengeData.logs
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 10);
+      
+      if (!recentLogs || recentLogs.length === 0) {
+        feed.innerHTML = '<p class="text-[#9aa3ad] text-center">No recent activity</p>';
+        return;
+      }
 
       feed.innerHTML = recentLogs.map(log => {
-        const user = challengeData.users.find(u => u.email === log.email);
-        const userName = user ? user.name : log.email.split('@')[0];
-        const date = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', { 
+        const userName = log.challenge_users?.name || 'Unknown User';
+        const date = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', {
           month: 'short', 
           day: 'numeric' 
         });
@@ -454,9 +466,9 @@
                 </div>
               </div>
             </div>
-            <p class="text-[#dfe6ee] text-sm mb-2">${log.text}</p>
-            ${log.photo ? `
-              <img src="${log.photo}" alt="Study material" 
+            <p class="text-[#dfe6ee] text-sm mb-2">${log.study_text}</p>
+            ${log.photo_url ? `
+              <img src="${log.photo_url}" alt="Study material" 
                    class="w-full max-w-xs rounded-lg border border-[#2a313a] cursor-pointer hover:opacity-80 transition-opacity"
                    onclick="window.open(this.src, '_blank')">
             ` : ''}
@@ -466,40 +478,48 @@
     }
 
     // ======= LEADERBOARD =======
-    function updateLeaderboard() {
+    async function updateLeaderboard() {
       const leaderboard = document.getElementById('leaderboard');
-      const sortedUsers = [...challengeData.users]
-        .map(user => ({
-          ...user,
-          streak: calculateStreak(user.email),
-          totalLogs: challengeData.logs.filter(log => log.email === user.email).length
-        }))
-        .sort((a, b) => {
-          if (a.streak !== b.streak) return b.streak - a.streak;
-          return b.totalLogs - a.totalLogs;
-        })
-        .slice(0, 10);
+      
+      try {
+        const allUsersWithStats = await Promise.all(
+          allUsers.map(async (user) => {
+            const stats = await window.supabaseUtils.getUserStats(user.id);
+            return { ...user, ...stats };
+          })
+        );
+        
+        const sortedUsers = allUsersWithStats
+          .sort((a, b) => {
+            if (a.streak !== b.streak) return b.streak - a.streak;
+            return b.totalLogs - a.totalLogs;
+          })
+          .slice(0, 10);
 
-      leaderboard.innerHTML = sortedUsers.map((user, index) => {
-        const isCurrentUser = user.email === currentUser.email;
-        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+        leaderboard.innerHTML = sortedUsers.map((user, index) => {
+          const isCurrentUser = user.id === currentUserId;
+          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
 
-        return `
-          <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-[#52F756]/10 border border-[#52F756]/30' : 'bg-[#0f1419] border border-[#22272e]'}">
-            <div class="flex items-center gap-3">
-              <span class="text-lg font-bold ${index < 3 ? '' : 'text-[#9aa3ad]'}">${medal}</span>
-              <div>
-                <p class="font-semibold text-[#dfe6ee] text-sm">${user.name}</p>
-                <p class="text-[#9aa3ad] text-xs">${user.totalLogs} total logs</p>
+          return `
+            <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-[#52F756]/10 border border-[#52F756]/30' : 'bg-[#0f1419] border border-[#22272e]'}">
+              <div class="flex items-center gap-3">
+                <span class="text-lg font-bold ${index < 3 ? '' : 'text-[#9aa3ad]'}">${medal}</span>
+                <div>
+                  <p class="font-semibold text-[#dfe6ee] text-sm">${user.name}</p>
+                  <p class="text-[#9aa3ad] text-xs">${user.totalLogs} total logs</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-[#52F756]">${user.streak}</p>
+                <p class="text-[#9aa3ad] text-xs">day streak</p>
               </div>
             </div>
-            <div class="text-right">
-              <p class="font-bold text-[#52F756]">${user.streak}</p>
-              <p class="text-[#9aa3ad] text-xs">day streak</p>
-            </div>
-          </div>
-        `;
-      }).join('');
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Error updating leaderboard:', error);
+        leaderboard.innerHTML = '<p class="text-[#9aa3ad] text-center">Error loading leaderboard</p>';
+      }
     }
   </script>
 </body>
