@@ -10,11 +10,32 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .fade-in { animation: fadeIn 0.3s ease-out; }
   </style>
+
+  <!-- Load supabase utils (NO AUTH version) -->
   <script type="module">
-    import { supabase, signInAnonymously, createOrGetUser, logStudyEntry, getUserLogs, getAllUsers, getRecentLogs, getUserStats } from './lib/supabase.js';
-    window.supabaseUtils = { supabase, signInAnonymously, createOrGetUser, logStudyEntry, getUserLogs, getAllUsers, getRecentLogs, getUserStats };
+    import {
+      supabase,
+      createOrGetUser,
+      logStudyEntry,
+      getUserLogs,
+      getAllUsers,
+      getRecentLogs,
+      getUserStats
+    } from './lib/supabase.js';
+
+    // expose to window
+    window.supabaseUtils = {
+      supabase,
+      createOrGetUser,
+      logStudyEntry,
+      getUserLogs,
+      getAllUsers,
+      getRecentLogs,
+      getUserStats
+    };
   </script>
 </head>
+
 <body class="bg-[#0b0c0f] text-[#f5f7fa] font-sans min-h-screen">
   <div id="loading" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999] hidden">
     <div class="w-16 h-16 border-4 border-gray-300 border-t-[#52F756] rounded-full animate-spin"></div>
@@ -27,15 +48,21 @@
         <h1 class="text-3xl font-bold mb-2 bg-gradient-to-r from-[#52F756] to-[#43c944] bg-clip-text text-transparent">Challenge Dashboard</h1>
         <p class="text-[#9aa3ad]">Track your daily English learning journey</p>
       </div>
-      
+
       <form id="loginForm" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-[#dfe6ee] mb-2">Email</label>
-          <input type="email" id="emailInput" required 
+          <input type="email" id="emailInput" required
                  class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors"
                  placeholder="Enter your email">
         </div>
-        <button type="submit" 
+        <div>
+          <label class="block text-sm font-medium text-[#dfe6ee] mb-2">Name</label>
+          <input type="text" id="nameInput" required
+                 class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors"
+                 placeholder="Enter your name">
+        </div>
+        <button type="submit"
                 class="w-full px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-lg hover:bg-[#43c944] transition-all duration-200 shadow-lg hover:shadow-xl">
           Enter Dashboard
         </button>
@@ -94,7 +121,7 @@
         </div>
       </div>
 
-      <!-- Calendar and Log Today -->
+      <!-- Calendar + Log Today -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <!-- Calendar -->
         <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e]">
@@ -126,16 +153,16 @@
           <div id="todayLogForm">
             <div class="mb-4">
               <label class="block text-sm font-medium text-[#dfe6ee] mb-2">What did you study today?</label>
-              <textarea id="studyText" rows="4" 
+              <textarea id="studyText" rows="4"
                         class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors resize-none"
                         placeholder="Describe what you learned or practiced today..."></textarea>
             </div>
             <div class="mb-4">
               <label class="block text-sm font-medium text-[#dfe6ee] mb-2">Upload Photo (Optional)</label>
-              <input type="file" id="photoInput" accept="image/*" 
+              <input type="file" id="photoInput" accept="image/*"
                      class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[#52F756] file:text-[#031b06] file:font-semibold hover:file:bg-[#43c944]">
             </div>
-            <button id="logTodayBtn" 
+            <button id="logTodayBtn"
                     class="w-full px-6 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-lg hover:bg-[#43c944] transition-all duration-200 shadow-lg hover:shadow-xl">
               Log Today's Study
             </button>
@@ -166,6 +193,26 @@
   </div>
 
   <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#1d2229] text-white px-4 py-2 rounded-lg border border-[#2a313a] hidden shadow-lg"></div>
+
+  <!-- Image Preview Modal -->
+  <div id="imgModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-[10000] p-4">
+  <div class="relative max-w-[95vw] max-h-[95vh] min-w-[280px] min-h-[180px] flex items-center justify-center">
+    <button id="modalClose"
+            class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-white/90 text-black font-bold shadow hover:bg-white">
+      ✕
+    </button>
+
+    <!-- loader -->
+    <div id="modalLoader" class="flex items-center gap-3 text-[#dfe6ee]">
+      <div class="w-10 h-10 rounded-full border-4 border-white/30 border-t-[#52F756] animate-spin"></div>
+      <span class="text-sm opacity-80">Loading image…</span>
+    </div>
+
+    <!-- image (hidden until loaded) -->
+    <img id="modalImg" alt="Preview"
+         class="hidden max-w-[95vw] max-h-[90vh] rounded-lg border border-[#2a313a] shadow-2xl object-contain" />
+  </div>
+</div>
 
   <script>
     // ======= CONFIG =======
@@ -205,48 +252,75 @@
       return userLogs.some(log => log.date === today);
     }
 
-    // ======= LOGIN =======
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('emailInput').value.trim();
-      if (!email) return;
+    function showLoading() { document.getElementById('loading').classList.remove('hidden'); }
+    function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
 
-      showLoading();
-      try {
-        // Sign in anonymously with email metadata
-        await window.supabaseUtils.signInAnonymously(email);
-        
-        // Create or get user
-        const name = email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1);
-        const user = await window.supabaseUtils.createOrGetUser(email, name);
-        
-        currentUser = user;
-        currentUserId = user.id;
-        
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('dashboard').classList.remove('hidden');
-        
-        await initDashboard();
-      } catch (error) {
-        console.error('Login error:', error);
-        showToast('Login failed. Please try again.');
-      } finally {
-        hideLoading();
-      }
-    });
+   // ======= LOGIN (NO AUTH) =======
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('emailInput').value.trim();
+  const name  = document.getElementById('nameInput').value.trim();
+  if (!email || !name) return;
 
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-      currentUser = null;
-      document.getElementById('loginScreen').classList.remove('hidden');
-      document.getElementById('dashboard').classList.add('hidden');
-      document.getElementById('emailInput').value = '';
-    });
+  showLoading();
+  try {
+    const user = await window.supabaseUtils.createOrGetUser(email, name);
+    currentUser   = user;
+    currentUserId = user.id;
+
+    // save to localStorage so it persists on refresh
+    localStorage.setItem('challengeUser', JSON.stringify(user));
+
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+
+    await initDashboard();
+  } catch (error) {
+    console.error('Login error:', error);
+    showToast('Login failed. Please try again.');
+  } finally {
+    hideLoading();
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  currentUser = null;
+  currentUserId = null;
+
+  // clear saved user
+  localStorage.removeItem('challengeUser');
+
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('emailInput').value = '';
+  document.getElementById('nameInput').value = '';
+});
+
+// ======= AUTO LOGIN ON REFRESH =======
+window.addEventListener('DOMContentLoaded', async () => {
+  const saved = localStorage.getItem('challengeUser');
+  if (saved) {
+    try {
+      const user = JSON.parse(saved);
+      currentUser = user;
+      currentUserId = user.id;
+
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+
+      await initDashboard();
+    } catch (err) {
+      console.error('Failed to restore saved user:', err);
+      localStorage.removeItem('challengeUser');
+    }
+  }
+});
 
     // ======= DASHBOARD =======
     async function initDashboard() {
       document.getElementById('userEmail').textContent = currentUser.email;
       document.getElementById('daysLeft').textContent = getDaysLeft();
-      
+
       await loadData();
       await updateStats();
       generateCalendar();
@@ -272,23 +346,22 @@
       try {
         const stats = await window.supabaseUtils.getUserStats(currentUserId);
         const { streak, totalLogs } = stats;
-        
         document.getElementById('userStreak').textContent = streak;
         document.getElementById('userTotalLogs').textContent = totalLogs;
-        
-        // Calculate rank
+
+        // rank
         const allUsersWithStats = await Promise.all(
           allUsers.map(async (user) => {
             const userStats = await window.supabaseUtils.getUserStats(user.id);
             return { ...user, ...userStats };
           })
         );
-        
+
         const sortedUsers = allUsersWithStats.sort((a, b) => {
           if (a.streak !== b.streak) return b.streak - a.streak;
           return b.totalLogs - a.totalLogs;
         });
-        
+
         const rank = sortedUsers.findIndex(u => u.id === currentUserId) + 1;
         document.getElementById('userRank').textContent = `#${rank}`;
       } catch (error) {
@@ -296,39 +369,11 @@
       }
     }
 
-    function showLoading() {
-      document.getElementById('loading').classList.remove('hidden');
-    }
-
-    function hideLoading() {
-      document.getElementById('loading').classList.add('hidden');
-    }
-      
-      // Update user data
-      currentUser.streak = streak;
-      currentUser.totalLogs = totalLogs;
-      
-      document.getElementById('userStreak').textContent = streak;
-      document.getElementById('userTotalLogs').textContent = totalLogs;
-      
-      // Calculate rank
-      const sortedUsers = [...challengeData.users].sort((a, b) => {
-        const aStreak = calculateStreak(a.email);
-        const bStreak = calculateStreak(b.email);
-        if (aStreak !== bStreak) return bStreak - aStreak;
-        return b.totalLogs - a.totalLogs;
-      });
-      
-      const rank = sortedUsers.findIndex(u => u.email === currentUser.email) + 1;
-      document.getElementById('userRank').textContent = `#${rank}`;
-    }
-
     // ======= CALENDAR =======
     function generateCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-
-      document.getElementById('currentMonth').textContent = 
+      document.getElementById('currentMonth').textContent =
         currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
       const firstDay = new Date(year, month, 1);
@@ -338,14 +383,12 @@
       const grid = document.getElementById('calendarGrid');
       grid.innerHTML = '';
 
-      // Empty cells for days before month starts
       for (let i = 0; i < firstDayDow; i++) {
         const cell = document.createElement('div');
         cell.className = 'h-8';
         grid.appendChild(cell);
       }
 
-      // Days of the month
       for (let day = 1; day <= daysInMonth; day++) {
         const cellDate = new Date(year, month, day);
         const dateStr = formatDateLocal(cellDate);
@@ -372,7 +415,6 @@
             document.getElementById('studyText').focus();
           });
         }
-
         grid.appendChild(cell);
       }
     }
@@ -381,7 +423,6 @@
       currentDate.setMonth(currentDate.getMonth() - 1);
       generateCalendar();
     });
-
     document.getElementById('nextMonth').addEventListener('click', () => {
       currentDate.setMonth(currentDate.getMonth() + 1);
       generateCalendar();
@@ -390,39 +431,26 @@
     // ======= LOG TODAY =======
     function updateTodayLogForm() {
       const loggedToday = hasLoggedToday();
-      
-      if (loggedToday) {
-        document.getElementById('todayLogForm').classList.add('hidden');
-        document.getElementById('todayLoggedMessage').classList.remove('hidden');
-      } else {
-        document.getElementById('todayLogForm').classList.remove('hidden');
-        document.getElementById('todayLoggedMessage').classList.add('hidden');
-      }
+      document.getElementById('todayLogForm').classList.toggle('hidden', loggedToday);
+      document.getElementById('todayLoggedMessage').classList.toggle('hidden', !loggedToday);
     }
 
     document.getElementById('logTodayBtn').addEventListener('click', async () => {
       const studyText = document.getElementById('studyText').value.trim();
       const photoInput = document.getElementById('photoInput');
-      
-      if (!studyText) {
-        showToast('Please describe what you studied today');
-        return;
-      }
+      if (!studyText) { showToast('Please describe what you studied today'); return; }
 
       showLoading();
       try {
         const today = formatDateLocal(new Date());
         const photoFile = photoInput.files[0] || null;
-        
+
         await window.supabaseUtils.logStudyEntry(currentUserId, today, studyText, photoFile);
-        
-        // Clear form
+
         document.getElementById('studyText').value = '';
         document.getElementById('photoInput').value = '';
-        
         showToast('Study logged successfully! 🎉');
-        
-        // Reload data and update UI
+
         await loadData();
         await updateStats();
         generateCalendar();
@@ -437,10 +465,10 @@
       }
     });
 
-    // ======= COMMUNITY FEED =======
+    // ======= COMMUNITY FEED (with click-to-preview) =======
     async function updateCommunityFeed() {
       const feed = document.getElementById('communityFeed');
-      
+
       if (!recentLogs || recentLogs.length === 0) {
         feed.innerHTML = '<p class="text-[#9aa3ad] text-center">No recent activity</p>';
         return;
@@ -448,10 +476,7 @@
 
       feed.innerHTML = recentLogs.map(log => {
         const userName = log.challenge_users?.name || 'Unknown User';
-        const date = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', {
-          month: 'short', 
-          day: 'numeric' 
-        });
+        const date = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
         return `
           <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e]">
@@ -466,21 +491,35 @@
                 </div>
               </div>
             </div>
-            <p class="text-[#dfe6ee] text-sm mb-2">${log.study_text}</p>
+            <p class="text-[#dfe6ee] text-sm mb-2 whitespace-pre-line">${log.study_text}</p>
             ${log.photo_url ? `
-              <img src="${log.photo_url}" alt="Study material" 
-                   class="w-full max-w-xs rounded-lg border border-[#2a313a] cursor-pointer hover:opacity-80 transition-opacity"
-                   onclick="window.open(this.src, '_blank')">
-            ` : ''}
+            <div class="preview-card relative inline-block h-32 w-32 cursor-zoom-in"
+                data-url="${log.photo_url}"
+                onclick="openImagePreview(this.dataset.url)">
+              <img src="${log.photo_url}" alt="Study material"
+                  class="h-full w-full object-contain rounded-lg border border-[#2a313a] transition-transform hover:scale-105"
+                  onerror="this.onerror=null; this.src='https://gmwerrhbhsbmfojfymqu.supabase.co/storage/v1/object/public/study-photos/document_text.png'; this.classList.remove('hover:scale-105');">
+              <div class="absolute inset-0 rounded-lg bg-black/40
+                          flex items-center justify-center text-white text-xs font-semibold
+                          opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                Click to view
+              </div>
+            </div>
+          ` : ''}
           </div>
         `;
       }).join('');
+
+      // attach click handlers for preview
+      feed.querySelectorAll('.feed-img').forEach(img => {
+        img.addEventListener('click', () => openImagePreview(img.dataset.url || img.src));
+      });
     }
 
     // ======= LEADERBOARD =======
     async function updateLeaderboard() {
       const leaderboard = document.getElementById('leaderboard');
-      
+
       try {
         const allUsersWithStats = await Promise.all(
           allUsers.map(async (user) => {
@@ -488,7 +527,7 @@
             return { ...user, ...stats };
           })
         );
-        
+
         const sortedUsers = allUsersWithStats
           .sort((a, b) => {
             if (a.streak !== b.streak) return b.streak - a.streak;
@@ -521,6 +560,84 @@
         leaderboard.innerHTML = '<p class="text-[#9aa3ad] text-center">Error loading leaderboard</p>';
       }
     }
+
+    // ======= IMAGE PREVIEW (with HEIC support) =======
+const imgModal    = document.getElementById('imgModal');
+const modalImg    = document.getElementById('modalImg');
+const modalClose  = document.getElementById('modalClose');
+const modalLoader = document.getElementById('modalLoader');
+
+// loader helpers
+function showLoader() {
+  if (!modalLoader) return;
+  modalImg.classList.add('hidden');
+  modalLoader.classList.remove('hidden');
+}
+function hideLoader() {
+  if (!modalLoader) return;
+  modalLoader.classList.add('hidden');
+  modalImg.classList.remove('hidden');
+}
+
+function closeImagePreview() {
+  // reset both states so next open starts clean
+  if (modalLoader) modalLoader.classList.remove('hidden');
+  modalImg.src = '';
+  modalImg.classList.add('hidden');
+
+  imgModal.classList.add('hidden');
+  imgModal.classList.remove('flex');
+}
+
+modalClose.addEventListener('click', closeImagePreview);
+imgModal.addEventListener('click', (e) => { if (e.target === imgModal) closeImagePreview(); });
+document.addEventListener('keydown', (e) => { if (!imgModal.classList.contains('hidden') && e.key === 'Escape') closeImagePreview(); });
+
+async function ensureHeicLib() {
+  if (window.heic2any) return; // already loaded
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+    s.async = true;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load heic2any'));
+    document.head.appendChild(s);
+  });
+}
+
+async function openImagePreview(url) {
+  try {
+    imgModal.classList.remove('hidden');
+    imgModal.classList.add('flex');
+
+    showLoader();                               // show spinner, hide image
+    modalImg.onload  = hideLoader;              // reveal when ready
+    modalImg.onerror = () => {                  // if load fails
+      showToast('Could not preview image.');
+      closeImagePreview();
+    };
+
+    const ext = (new URL(url, location.href).pathname.split('.').pop() || '').toLowerCase();
+
+    if (ext === 'heic' || ext === 'heif') {
+      await ensureHeicLib();
+      const resp = await fetch(url, { mode: 'cors' });
+      const blob = await resp.blob();
+      const out  = await window.heic2any({ blob, toType: 'image/jpeg' });
+      const outBlob   = Array.isArray(out) ? out[0] : out;
+      const objectUrl = URL.createObjectURL(outBlob);
+
+      modalImg.onload = () => { URL.revokeObjectURL(objectUrl); hideLoader(); };
+      modalImg.src = objectUrl;
+    } else {
+      modalImg.src = url; // png/jpg/jpeg
+    }
+  } catch (err) {
+    console.error('Preview failed:', err);
+    closeImagePreview();
+    showToast('Could not preview image.');
+  }
+}
   </script>
 </body>
 </html>
