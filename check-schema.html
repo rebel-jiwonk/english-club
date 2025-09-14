@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Check Database Schema</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+    .result { margin: 10px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; }
+    .success { border-color: #4CAF50; background: #2d4a2d; }
+    .error { border-color: #f44336; background: #4a2d2d; }
+    .info { border-color: #2196F3; background: #2d3a4a; }
+    pre { background: #000; padding: 10px; border-radius: 3px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Check Database Schema</h1>
+  <div id="results"></div>
+
+  <script type="module">
+    import { supabase } from './lib/supabase.js';
+
+    const results = document.getElementById('results');
+
+    function addResult(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `result ${status}`;
+      div.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    async function checkSchema() {
+      try {
+        // Check challenge_users table
+        addResult('Check challenge_users', 'info', 'Checking challenge_users table...');
+        const { data: users, error: usersError } = await supabase
+          .from('challenge_users')
+          .select('*');
+        
+        if (usersError) {
+          addResult('challenge_users Error', 'error', usersError.message, usersError);
+        } else {
+          addResult('challenge_users Success', 'success', `Found ${users.length} users`, users);
+        }
+
+        // Check challenge_logs table
+        addResult('Check challenge_logs', 'info', 'Checking challenge_logs table...');
+        const { data: logs, error: logsError } = await supabase
+          .from('challenge_logs')
+          .select('*')
+          .order('date', { ascending: false });
+        
+        if (logsError) {
+          addResult('challenge_logs Error', 'error', logsError.message, logsError);
+        } else {
+          addResult('challenge_logs Success', 'success', `Found ${logs.length} logs`, logs);
+        }
+
+        // Check if we can insert a test log
+        if (users.length > 0) {
+          addResult('Test Insert', 'info', 'Testing insert into challenge_logs...');
+          const testLog = {
+            user_id: users[0].id,
+            date: new Date().toISOString().split('T')[0],
+            study_text: 'Schema test log'
+          };
+          
+          const { data: insertData, error: insertError } = await supabase
+            .from('challenge_logs')
+            .insert(testLog)
+            .select()
+            .single();
+          
+          if (insertError) {
+            addResult('Insert Error', 'error', insertError.message, insertError);
+          } else {
+            addResult('Insert Success', 'success', 'Successfully inserted test log', insertData);
+          }
+        }
+
+        // Check RLS policies
+        addResult('Check RLS Policies', 'info', 'Checking if RLS policies are working...');
+        const { data: policyTest, error: policyError } = await supabase
+          .from('challenge_logs')
+          .select('count')
+          .limit(1);
+        
+        if (policyError) {
+          addResult('RLS Policy Error', 'error', `RLS might still be blocking: ${policyError.message}`, policyError);
+        } else {
+          addResult('RLS Policy Success', 'success', 'RLS policies appear to be working correctly');
+        }
+
+      } catch (error) {
+        addResult('Schema Check Failed', 'error', `Unexpected error: ${error.message}`, error);
+      }
+    }
+
+    checkSchema();
+  </script>
+</body>
+</html>

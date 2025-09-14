@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Database Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+    .test { margin: 10px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; }
+    .success { border-color: #4CAF50; background: #2d4a2d; }
+    .error { border-color: #f44336; background: #4a2d2d; }
+    .info { border-color: #2196F3; background: #2d3a4a; }
+    pre { background: #000; padding: 10px; border-radius: 3px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Database Connection Test</h1>
+  <div id="results"></div>
+
+  <script type="module">
+    import { supabase, createOrGetUser, logStudyEntry, getUserLogs, getAllUsers, getRecentLogs, uploadRecording, getUserRecordings, getAllRecordings } from './lib/supabase.js';
+
+    const results = document.getElementById('results');
+
+    function addResult(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `test ${status}`;
+      div.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    async function runTests() {
+      try {
+        // Test 1: Basic connection
+        addResult('Test 1: Basic Connection', 'info', 'Testing Supabase connection...');
+        
+        const { data: testData, error: testError } = await supabase
+          .from('challenge_users')
+          .select('count')
+          .limit(1);
+        
+        if (testError) {
+          addResult('Test 1: Basic Connection', 'error', `Connection failed: ${testError.message}`, testError);
+        } else {
+          addResult('Test 1: Basic Connection', 'success', 'Connection successful!');
+        }
+
+        // Test 2: Create user
+        addResult('Test 2: Create User', 'info', 'Testing user creation...');
+        
+        const testUser = await createOrGetUser('test@example.com', 'Test User');
+        addResult('Test 2: Create User', 'success', 'User created successfully!', testUser);
+
+        // Test 3: Get all users
+        addResult('Test 3: Get All Users', 'info', 'Testing get all users...');
+        
+        const users = await getAllUsers();
+        addResult('Test 3: Get All Users', 'success', `Found ${users.length} users`, users);
+
+        // Test 4: Log study entry
+        addResult('Test 4: Log Study Entry', 'info', 'Testing study entry logging...');
+        
+        const today = new Date().toISOString().split('T')[0];
+        const studyEntry = await logStudyEntry(testUser.id, today, 'Test study entry from database test');
+        addResult('Test 4: Log Study Entry', 'success', 'Study entry logged successfully!', studyEntry);
+
+        // Test 5: Get user logs
+        addResult('Test 5: Get User Logs', 'info', 'Testing get user logs...');
+        
+        const userLogs = await getUserLogs(testUser.id);
+        addResult('Test 5: Get User Logs', 'success', `Found ${userLogs.length} logs for user`, userLogs);
+
+        // Test 6: Get recent logs
+        addResult('Test 6: Get Recent Logs', 'info', 'Testing get recent logs...');
+        
+        const recentLogs = await getRecentLogs(5);
+        addResult('Test 6: Get Recent Logs', 'success', `Found ${recentLogs.length} recent logs`, recentLogs);
+
+        addResult('All Tests Complete', 'success', 'All database operations are working correctly!');
+
+      } catch (error) {
+        addResult('Test Failed', 'error', `Test failed with error: ${error.message}`, error);
+      }
+    }
+
+    runTests();
+  </script>
+</body>
+</html>

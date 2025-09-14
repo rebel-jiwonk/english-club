@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quick Database Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+    .result { margin: 10px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; }
+    .success { border-color: #4CAF50; background: #2d4a2d; }
+    .error { border-color: #f44336; background: #4a2d2d; }
+    pre { background: #000; padding: 10px; border-radius: 3px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Quick Database Test</h1>
+  <div id="results"></div>
+
+  <script type="module">
+    import { supabase } from './lib/supabase.js';
+
+    const results = document.getElementById('results');
+
+    function addResult(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `result ${status}`;
+      div.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    async function quickTest() {
+      try {
+        // Test 1: Try to read from challenge_users
+        addResult('Test 1: Read Users', 'info', 'Testing if we can read from challenge_users...');
+        const { data: users, error: usersError } = await supabase
+          .from('challenge_users')
+          .select('*');
+        
+        if (usersError) {
+          addResult('Test 1: Read Users', 'error', `Error: ${usersError.message}`, usersError);
+        } else {
+          addResult('Test 1: Read Users', 'success', `Success! Found ${users.length} users`, users);
+        }
+
+        // Test 2: Try to read from challenge_logs
+        addResult('Test 2: Read Logs', 'info', 'Testing if we can read from challenge_logs...');
+        const { data: logs, error: logsError } = await supabase
+          .from('challenge_logs')
+          .select('*');
+        
+        if (logsError) {
+          addResult('Test 2: Read Logs', 'error', `Error: ${logsError.message}`, logsError);
+        } else {
+          addResult('Test 2: Read Logs', 'success', `Success! Found ${logs.length} logs`, logs);
+        }
+
+        // Test 3: Try to insert a test log
+        addResult('Test 3: Insert Log', 'info', 'Testing if we can insert into challenge_logs...');
+        const testLog = {
+          user_id: users[0]?.id || '00000000-0000-0000-0000-000000000000',
+          date: new Date().toISOString().split('T')[0],
+          study_text: 'Test log entry'
+        };
+        
+        const { data: insertData, error: insertError } = await supabase
+          .from('challenge_logs')
+          .insert(testLog)
+          .select()
+          .single();
+        
+        if (insertError) {
+          addResult('Test 3: Insert Log', 'error', `Error: ${insertError.message}`, insertError);
+        } else {
+          addResult('Test 3: Insert Log', 'success', 'Success! Inserted test log', insertData);
+        }
+
+      } catch (error) {
+        addResult('Test Failed', 'error', `Unexpected error: ${error.message}`, error);
+      }
+    }
+
+    quickTest();
+  </script>
+</body>
+</html>

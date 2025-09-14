@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+    .result { margin: 10px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; }
+    .success { border-color: #4CAF50; background: #2d4a2d; }
+    .error { border-color: #f44336; background: #4a2d2d; }
+    .info { border-color: #2196F3; background: #2d3a4a; }
+    pre { background: #000; padding: 10px; border-radius: 3px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Simple Database Test</h1>
+  <div id="results"></div>
+  <button onclick="runTest()" style="padding: 10px 20px; background: #52F756; color: #031b06; border: none; border-radius: 5px; cursor: pointer;">Run Test</button>
+
+  <script type="module">
+    import { supabase, createOrGetUser, getUserLogs, getUserStats, logStudyEntry } from './lib/supabase.js';
+
+    const results = document.getElementById('results');
+
+    function addResult(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `result ${status}`;
+      div.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    window.runTest = async function() {
+      results.innerHTML = '';
+      
+      try {
+        // Step 1: Create or get user
+        addResult('Step 1: User', 'info', 'Creating/getting test user...');
+        const user = await createOrGetUser('test@example.com', 'Test User');
+        addResult('Step 1: User', 'success', 'User ready', user);
+
+        // Step 2: Add some test logs
+        addResult('Step 2: Add Logs', 'info', 'Adding test study logs...');
+        
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const dayBefore = new Date(today);
+        dayBefore.setDate(dayBefore.getDate() - 2);
+
+        const testDates = [
+          today.toISOString().split('T')[0],
+          yesterday.toISOString().split('T')[0],
+          dayBefore.toISOString().split('T')[0]
+        ];
+
+        for (let i = 0; i < testDates.length; i++) {
+          try {
+            await logStudyEntry(user.id, testDates[i], `Test study for ${testDates[i]}`);
+            addResult(`Log ${i + 1}`, 'success', `Added log for ${testDates[i]}`);
+          } catch (error) {
+            addResult(`Log ${i + 1}`, 'error', `Failed: ${error.message}`);
+          }
+        }
+
+        // Step 3: Check logs
+        addResult('Step 3: Check Logs', 'info', 'Fetching user logs...');
+        const logs = await getUserLogs(user.id);
+        addResult('Step 3: Check Logs', 'success', `Found ${logs.length} logs`, logs);
+
+        // Step 4: Check stats
+        addResult('Step 4: Check Stats', 'info', 'Calculating user stats...');
+        const stats = await getUserStats(user.id);
+        addResult('Step 4: Check Stats', stats.streak > 0 ? 'success' : 'error', 
+          `Streak: ${stats.streak}, Total: ${stats.totalLogs}`, stats);
+
+        // Step 5: Manual streak check
+        addResult('Step 5: Manual Check', 'info', 'Manual streak calculation...');
+        const dates = new Set(logs.map(l => l.date));
+        let manualStreak = 0;
+        let cursor = new Date();
+        
+        while (true) {
+          const y = cursor.getFullYear();
+          const m = String(cursor.getMonth() + 1).padStart(2, '0');
+          const d = String(cursor.getDate()).padStart(2, '0');
+          const key = `${y}-${m}-${d}`;
+          
+          if (dates.has(key)) { 
+            manualStreak += 1; 
+            cursor.setDate(cursor.getDate() - 1); 
+          } else {
+            break;
+          }
+        }
+        
+        addResult('Step 5: Manual Check', 'info', 
+          `Manual streak: ${manualStreak}, Dates: ${Array.from(dates).sort().join(', ')}`);
+
+      } catch (error) {
+        addResult('Test Failed', 'error', `Error: ${error.message}`, error);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Debug Streak Calculation</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+    .debug { margin: 10px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; }
+    .success { border-color: #4CAF50; background: #2d4a2d; }
+    .error { border-color: #f44336; background: #4a2d2d; }
+    .info { border-color: #2196F3; background: #2d3a4a; }
+    pre { background: #000; padding: 10px; border-radius: 3px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Debug Streak Calculation</h1>
+  <div id="results"></div>
+
+  <script type="module">
+    import { supabase, createOrGetUser, getUserLogs, getUserStats, logStudyEntry } from './lib/supabase.js';
+
+    const results = document.getElementById('results');
+
+    function addResult(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `debug ${status}`;
+      div.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    async function debugStreak() {
+      try {
+        // Test 1: Check if we can fetch users
+        addResult('Test 1: Fetch Users', 'info', 'Checking if users exist...');
+        const { data: users, error: usersError } = await supabase
+          .from('challenge_users')
+          .select('*');
+        
+        if (usersError) {
+          addResult('Test 1: Fetch Users', 'error', `Error: ${usersError.message}`);
+          return;
+        }
+        
+        addResult('Test 1: Fetch Users', 'success', `Found ${users.length} users`, users);
+
+        if (users.length === 0) {
+          addResult('No Users', 'error', 'No users found in database. Creating test user...');
+          
+          // Create a test user
+          const testUser = await createOrGetUser('test@example.com', 'Test User');
+          addResult('Test User Created', 'success', 'Test user created', testUser);
+          
+          // Add some test logs
+          const today = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const dayBefore = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          
+          await logStudyEntry(testUser.id, today, 'Test study today');
+          await logStudyEntry(testUser.id, yesterday, 'Test study yesterday');
+          await logStudyEntry(testUser.id, dayBefore, 'Test study day before');
+          
+          addResult('Test Logs Created', 'success', 'Created test logs for 3 consecutive days');
+        }
+
+        // Test 2: Check logs for each user
+        for (const user of users) {
+          addResult(`Test 2: User ${user.name}`, 'info', `Checking logs for ${user.name}...`);
+          
+          const logs = await getUserLogs(user.id);
+          addResult(`Logs for ${user.name}`, 'info', `Found ${logs.length} logs`, logs);
+          
+          // Test 3: Check streak calculation
+          const stats = await getUserStats(user.id);
+          addResult(`Stats for ${user.name}`, 'info', `Streak: ${stats.streak}, Total: ${stats.totalLogs}`, stats);
+          
+          // Manual streak calculation for debugging
+          const dates = new Set(logs.map(l => l.date));
+          let manualStreak = 0;
+          let cursor = new Date();
+          
+          addResult(`Manual Streak Calc for ${user.name}`, 'info', `Checking dates from ${cursor.toISOString().split('T')[0]} backwards...`);
+          
+          while (true) {
+            const y = cursor.getFullYear();
+            const m = String(cursor.getMonth() + 1).padStart(2, '0');
+            const d = String(cursor.getDate()).padStart(2, '0');
+            const key = `${y}-${m}-${d}`;
+            
+            addResult(`Date Check: ${key}`, 'info', `Has log: ${dates.has(key)}`);
+            
+            if (dates.has(key)) { 
+              manualStreak += 1; 
+              cursor.setDate(cursor.getDate() - 1); 
+            } else {
+              break;
+            }
+          }
+          
+          addResult(`Manual Streak for ${user.name}`, 'success', `Manual calculation: ${manualStreak} days`);
+        }
+
+      } catch (error) {
+        addResult('Debug Failed', 'error', `Error: ${error.message}`, error);
+      }
+    }
+
+    debugStreak();
+  </script>
+</body>
+</html>

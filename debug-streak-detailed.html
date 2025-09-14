@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Detailed Streak Debug</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+    .debug { margin: 10px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; }
+    .success { border-color: #4CAF50; background: #2d4a2d; }
+    .error { border-color: #f44336; background: #4a2d2d; }
+    .info { border-color: #2196F3; background: #2d3a4a; }
+    .warning { border-color: #ff9800; background: #4a3d00; }
+    pre { background: #000; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px; }
+    .step { margin-left: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Detailed Streak Debug</h1>
+  <div id="results"></div>
+
+  <script type="module">
+    import { supabase, createOrGetUser, getUserLogs, getUserStats, logStudyEntry } from './lib/supabase.js';
+
+    const results = document.getElementById('results');
+
+    function addResult(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `debug ${status}`;
+      div.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    function addStep(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `debug step ${status}`;
+      div.innerHTML = `
+        <h4>${title}</h4>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    async function detailedDebug() {
+      try {
+        addResult('🔍 Starting Detailed Streak Debug', 'info', 'Checking database access and streak calculation...');
+
+        // Step 1: Check database connection
+        addStep('Step 1: Database Connection', 'info', 'Testing basic database access...');
+        const { data: users, error: usersError } = await supabase
+          .from('challenge_users')
+          .select('*');
+        
+        if (usersError) {
+          addStep('Step 1: Database Connection', 'error', `Database error: ${usersError.message}`, usersError);
+          return;
+        }
+        
+        addStep('Step 1: Database Connection', 'success', `✅ Database accessible. Found ${users.length} users`, users);
+
+        // Step 2: Check if there are any logs
+        addStep('Step 2: Check Existing Logs', 'info', 'Checking if there are any study logs...');
+        const { data: allLogs, error: logsError } = await supabase
+          .from('challenge_logs')
+          .select('*')
+          .order('date', { ascending: false });
+        
+        if (logsError) {
+          addStep('Step 2: Check Existing Logs', 'error', `Error fetching logs: ${logsError.message}`, logsError);
+          return;
+        }
+        
+        addStep('Step 2: Check Existing Logs', allLogs.length > 0 ? 'success' : 'warning', 
+          `Found ${allLogs.length} total logs in database`, allLogs);
+
+        // Step 3: Create test data if needed
+        if (allLogs.length === 0) {
+          addStep('Step 3: Create Test Data', 'info', 'No logs found. Creating test data...');
+          
+          // Create test user if none exists
+          let testUser;
+          if (users.length === 0) {
+            testUser = await createOrGetUser('test@example.com', 'Test User');
+            addStep('Test User Created', 'success', 'Created test user', testUser);
+          } else {
+            testUser = users[0];
+            addStep('Using Existing User', 'info', 'Using first existing user', testUser);
+          }
+
+          // Create test logs for the last 3 days
+          const today = new Date();
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          const dayBefore = new Date(today);
+          dayBefore.setDate(dayBefore.getDate() - 2);
+
+          const testDates = [
+            today.toISOString().split('T')[0],
+            yesterday.toISOString().split('T')[0],
+            dayBefore.toISOString().split('T')[0]
+          ];
+
+          addStep('Creating Test Logs', 'info', `Creating logs for dates: ${testDates.join(', ')}`);
+
+          for (let i = 0; i < testDates.length; i++) {
+            try {
+              await logStudyEntry(testUser.id, testDates[i], `Test study entry for ${testDates[i]}`);
+              addStep(`Log ${i + 1} Created`, 'success', `Created log for ${testDates[i]}`);
+            } catch (error) {
+              addStep(`Log ${i + 1} Failed`, 'error', `Failed to create log for ${testDates[i]}: ${error.message}`);
+            }
+          }
+        }
+
+        // Step 4: Test streak calculation for each user
+        addStep('Step 4: Test Streak Calculation', 'info', 'Testing streak calculation for all users...');
+        
+        const { data: updatedUsers } = await supabase
+          .from('challenge_users')
+          .select('*');
+
+        for (const user of updatedUsers) {
+          addStep(`Testing User: ${user.name}`, 'info', `Testing streak calculation for ${user.name}...`);
+          
+          // Get user logs
+          const userLogs = await getUserLogs(user.id);
+          addStep(`User Logs for ${user.name}`, 'info', `Found ${userLogs.length} logs`, userLogs);
+          
+          // Manual streak calculation with detailed logging
+          const dates = new Set(userLogs.map(l => l.date));
+          addStep(`Date Set for ${user.name}`, 'info', `Unique dates: ${Array.from(dates).sort().join(', ')}`);
+          
+          let manualStreak = 0;
+          let cursor = new Date();
+          const streakDays = [];
+          
+          addStep(`Manual Calculation for ${user.name}`, 'info', 'Starting from today and going backwards...');
+          
+          while (true) {
+            const y = cursor.getFullYear();
+            const m = String(cursor.getMonth() + 1).padStart(2, '0');
+            const d = String(cursor.getDate()).padStart(2, '0');
+            const key = `${y}-${m}-${d}`;
+            
+            const hasLog = dates.has(key);
+            addStep(`Checking ${key}`, hasLog ? 'success' : 'warning', 
+              `Date ${key}: ${hasLog ? 'HAS LOG' : 'NO LOG'}`);
+            
+            if (hasLog) { 
+              manualStreak += 1;
+              streakDays.push(key);
+              cursor.setDate(cursor.getDate() - 1); 
+            } else {
+              break;
+            }
+          }
+          
+          addStep(`Manual Streak Result for ${user.name}`, 'success', 
+            `Manual calculation: ${manualStreak} days (${streakDays.join(', ')})`);
+          
+          // Test the actual getUserStats function
+          const stats = await getUserStats(user.id);
+          addStep(`getUserStats Result for ${user.name}`, 
+            stats.streak > 0 ? 'success' : 'warning', 
+            `Function result: streak=${stats.streak}, total=${stats.totalLogs}`, stats);
+          
+          if (manualStreak !== stats.streak) {
+            addStep(`MISMATCH for ${user.name}`, 'error', 
+              `Manual: ${manualStreak}, Function: ${stats.streak}`);
+          }
+        }
+
+        addResult('🎯 Debug Complete', 'success', 'Detailed streak debugging completed. Check results above.');
+
+      } catch (error) {
+        addResult('❌ Debug Failed', 'error', `Unexpected error: ${error.message}`, error);
+      }
+    }
+
+    detailedDebug();
+  </script>
+</body>
+</html>

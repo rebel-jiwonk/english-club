@@ -20,7 +20,10 @@
       getUserLogs,
       getAllUsers,
       getRecentLogs,
-      getUserStats
+      getUserStats,
+      uploadRecording,
+      getUserRecordings,
+      getAllRecordings
     } from './lib/supabase.js';
 
     // expose to window
@@ -166,11 +169,32 @@
                      class="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors text-sm file:mr-2 sm:file:mr-4 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-lg file:border-0 file:bg-[#52F756] file:text-[#031b06] file:font-semibold file:text-xs sm:file:text-sm hover:file:bg-[#43c944]">
             </div>
             <div class="mb-4">
-              <label class="block text-sm font-medium text-[#dfe6ee] mb-2">Upload Recording (Optional)</label>
-              <input type="file" id="recordingInput" accept="audio/*,.mp3,.wav,.m4a,.aac"
-                     class="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors text-sm file:mr-2 sm:file:mr-4 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-lg file:border-0 file:bg-[#52F756] file:text-[#031b06] file:font-semibold file:text-xs sm:file:text-sm hover:file:bg-[#43c944]">
-              <input type="text" id="recordingTitle" placeholder="Recording title (optional)"
-                     class="w-full mt-2 px-4 py-2 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors text-sm">
+              <label class="block text-sm font-medium text-[#dfe6ee] mb-2">Record Audio (Optional)</label>
+              <div class="space-y-2">
+                <div class="flex gap-2">
+                  <button id="startRecordingBtn" 
+                          class="flex-1 px-3 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-all text-sm">
+                    🎤 Record
+                  </button>
+                  <button id="stopRecordingBtn" 
+                          class="flex-1 px-3 py-2 bg-gray-600 text-white font-bold rounded-lg hover:bg-gray-700 transition-all text-sm hidden">
+                    ⏹️ Stop
+                  </button>
+                </div>
+                <div id="recordingStatus" class="text-center text-[#9aa3ad] text-xs hidden">
+                  <div class="flex items-center justify-center gap-2">
+                    <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span>Recording...</span>
+                  </div>
+                </div>
+                <audio id="recordedAudio" controls class="w-full hidden"></audio>
+                <input type="text" id="recordingTitle" placeholder="Recording title (optional)"
+                       class="w-full px-3 py-2 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors text-sm">
+                <div class="text-xs text-[#9aa3ad] text-center">
+                  Or <input type="file" id="recordingInput" accept="audio/*,.mp3,.wav,.m4a,.aac" class="hidden">
+                  <label for="recordingInput" class="text-[#52F756] cursor-pointer hover:underline">upload a file</label>
+                </div>
+              </div>
             </div>
             <button id="logTodayBtn"
                     class="w-full px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-[#52F756] text-[#031b06] font-bold rounded-lg hover:bg-[#43c944] transition-all duration-200 shadow-lg hover:shadow-xl">
@@ -193,13 +217,21 @@
           <div id="communityFeed" class="space-y-3 sm:space-y-4 max-h-80 sm:max-h-96 overflow-y-auto"></div>
         </div>
 
-        <!-- Recordings Section -->
+        <!-- Leaderboard Section -->
+        <div class="bg-[#14171c] rounded-2xl p-4 sm:p-6 border border-[#22272e]">
+          <h2 class="text-xl font-bold text-[#dfe6ee] mb-4">Leaderboard</h2>
+          <div id="leaderboard" class="space-y-2 sm:space-y-3"></div>
+        </div>
+      </div>
+
+      <!-- Recordings Section -->
+      <div class="mt-6 lg:mt-8">
         <div class="bg-[#14171c] rounded-2xl p-4 sm:p-6 border border-[#22272e]">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold text-[#dfe6ee]">Recordings</h2>
+            <h2 class="text-xl font-bold text-[#dfe6ee]">🎵 Study Recordings</h2>
             <button id="viewRecordingsBtn" 
                     class="px-3 py-1 text-xs bg-[#2a313a] text-[#dfe6ee] rounded hover:bg-[#3a4450] transition-all border border-[#3a4450]">
-              🎵 View All
+              View All
             </button>
           </div>
           <div id="recordingsPreview" class="space-y-2 sm:space-y-3 max-h-60 overflow-y-auto">
@@ -207,14 +239,26 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
-      <!-- Leaderboard (moved below) -->
-      <div class="mt-6 lg:mt-8">
-        <!-- Leaderboard -->
-        <div class="bg-[#14171c] rounded-2xl p-4 sm:p-6 border border-[#22272e]">
-          <h2 class="text-xl font-bold text-[#dfe6ee] mb-4">Leaderboard</h2>
-          <div id="leaderboard" class="space-y-2 sm:space-y-3"></div>
-        </div>
+  <!-- Password Modal for Recordings -->
+  <div id="passwordModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-[10000] p-4">
+    <div class="bg-[#14171c] rounded-2xl p-6 border border-[#22272e] w-full max-w-md">
+      <h2 class="text-xl font-bold text-[#dfe6ee] mb-4">🔒 Enter Password</h2>
+      <p class="text-[#9aa3ad] text-sm mb-4">Enter the password to access recordings</p>
+      <input type="password" id="passwordInput" 
+             class="w-full px-4 py-3 bg-[#0f1419] border border-[#2a313a] rounded-lg text-[#dfe6ee] focus:border-[#52F756] focus:outline-none transition-colors mb-4"
+             placeholder="Enter password">
+      <div class="flex gap-3">
+        <button id="passwordSubmit" 
+                class="flex-1 px-4 py-3 bg-[#52F756] text-[#031b06] font-bold rounded-lg hover:bg-[#43c944] transition-all">
+          Submit
+        </button>
+        <button id="passwordCancel" 
+                class="flex-1 px-4 py-3 bg-[#2a313a] text-[#dfe6ee] rounded-lg hover:bg-[#3a4450] transition-all">
+          Cancel
+        </button>
       </div>
     </div>
   </div>
@@ -545,52 +589,94 @@ window.addEventListener('DOMContentLoaded', async () => {
     async function updateCommunityFeed() {
       const feed = document.getElementById('communityFeed');
 
-      if (!recentLogs || recentLogs.length === 0) {
-        feed.innerHTML = '<p class="text-[#9aa3ad] text-center">No recent activity</p>';
-        return;
+      try {
+        // Fetch both logs and recordings
+        const [logs, recordings] = await Promise.all([
+          window.supabaseUtils.getRecentLogs(10),
+          window.supabaseUtils.getAllRecordings()
+        ]);
+
+        // Combine and sort by date
+        const allActivities = [
+          ...logs.map(log => ({ ...log, type: 'log', date: log.date })),
+          ...recordings.map(recording => ({ ...recording, type: 'recording', date: recording.date }))
+        ].sort((a, b) => new Date(b.date + 'T12:00:00') - new Date(a.date + 'T12:00:00')).slice(0, 10);
+
+        if (allActivities.length === 0) {
+          feed.innerHTML = '<p class="text-[#9aa3ad] text-center">No recent activity</p>';
+          return;
+        }
+
+        feed.innerHTML = allActivities.map(activity => {
+          const userName = activity.challenge_users?.name || 'Unknown User';
+          const date = new Date(activity.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+          if (activity.type === 'recording') {
+            return `
+              <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e]">
+                <div class="flex items-start justify-between mb-2">
+                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <div class="w-6 sm:w-8 h-6 sm:h-8 bg-[#52F756] rounded-full flex items-center justify-center text-[#031b06] font-bold text-xs sm:text-sm flex-shrink-0">
+                      ${userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-[#dfe6ee] text-xs sm:text-sm truncate">${userName}</p>
+                      <p class="text-[#9aa3ad] text-xs">${date} • 🎵 Recording</p>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-[#dfe6ee] text-xs sm:text-sm mb-2 font-medium">${activity.title || 'Untitled Recording'}</p>
+                <audio controls class="w-full h-8">
+                  <source src="${activity.recording_url}" type="audio/webm">
+                  <source src="${activity.recording_url}" type="audio/mp3">
+                  <source src="${activity.recording_url}" type="audio/wav">
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            `;
+          } else {
+            return `
+              <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e]">
+                <div class="flex items-start justify-between mb-2">
+                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <div class="w-6 sm:w-8 h-6 sm:h-8 bg-[#52F756] rounded-full flex items-center justify-center text-[#031b06] font-bold text-xs sm:text-sm flex-shrink-0">
+                      ${userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-[#dfe6ee] text-xs sm:text-sm truncate">${userName}</p>
+                      <p class="text-[#9aa3ad] text-xs">${date}</p>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-[#dfe6ee] text-xs sm:text-sm mb-2 whitespace-pre-line break-words">${activity.study_text}</p>
+                ${activity.photo_url ? `
+                <div class="preview-card relative inline-block h-20 w-20 sm:h-32 sm:w-32 cursor-zoom-in"
+                    data-url="${activity.photo_url}"
+                    onclick="openImagePreview(this.dataset.url)">
+                  <img src="${activity.photo_url}" alt="Study material"
+                      class="h-full w-full object-contain rounded-lg border border-[#2a313a] transition-transform hover:scale-105"
+                      onerror="this.onerror=null; this.src='https://gmwerrhbhsbmfojfymqu.supabase.co/storage/v1/object/public/study-photos/document_text.png'; this.classList.remove('hover:scale-105');">
+                  <div class="absolute inset-0 rounded-lg bg-black/40
+                              flex items-center justify-center text-white text-xs font-semibold text-center
+                              opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                    <span class="hidden sm:inline">Click to view</span>
+                    <span class="sm:hidden">Tap</span>
+                  </div>
+                </div>
+              ` : ''}
+              </div>
+            `;
+          }
+        }).join('');
+
+        // attach click handlers for preview
+        feed.querySelectorAll('.feed-img').forEach(img => {
+          img.addEventListener('click', () => openImagePreview(img.dataset.url || img.src));
+        });
+      } catch (error) {
+        console.error('Error updating community feed:', error);
+        feed.innerHTML = '<p class="text-[#9aa3ad] text-center">Error loading community feed</p>';
       }
-
-      feed.innerHTML = recentLogs.map(log => {
-        const userName = log.challenge_users?.name || 'Unknown User';
-        const date = new Date(log.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-        return `
-          <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e]">
-            <div class="flex items-start justify-between mb-2">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
-                <div class="w-6 sm:w-8 h-6 sm:h-8 bg-[#52F756] rounded-full flex items-center justify-center text-[#031b06] font-bold text-xs sm:text-sm flex-shrink-0">
-                  ${userName.charAt(0).toUpperCase()}
-                </div>
-                <div class="min-w-0">
-                  <p class="font-semibold text-[#dfe6ee] text-xs sm:text-sm truncate">${userName}</p>
-                  <p class="text-[#9aa3ad] text-xs">${date}</p>
-                </div>
-              </div>
-            </div>
-            <p class="text-[#dfe6ee] text-xs sm:text-sm mb-2 whitespace-pre-line break-words">${log.study_text}</p>
-            ${log.photo_url ? `
-            <div class="preview-card relative inline-block h-20 w-20 sm:h-32 sm:w-32 cursor-zoom-in"
-                data-url="${log.photo_url}"
-                onclick="openImagePreview(this.dataset.url)">
-              <img src="${log.photo_url}" alt="Study material"
-                  class="h-full w-full object-contain rounded-lg border border-[#2a313a] transition-transform hover:scale-105"
-                  onerror="this.onerror=null; this.src='https://gmwerrhbhsbmfojfymqu.supabase.co/storage/v1/object/public/study-photos/document_text.png'; this.classList.remove('hover:scale-105');">
-              <div class="absolute inset-0 rounded-lg bg-black/40
-                          flex items-center justify-center text-white text-xs font-semibold text-center
-                          opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                <span class="hidden sm:inline">Click to view</span>
-                <span class="sm:hidden">Tap</span>
-              </div>
-            </div>
-          ` : ''}
-          </div>
-        `;
-      }).join('');
-
-      // attach click handlers for preview
-      feed.querySelectorAll('.feed-img').forEach(img => {
-        img.addEventListener('click', () => openImagePreview(img.dataset.url || img.src));
-      });
     }
 
     // ======= LEADERBOARD =======
@@ -635,6 +721,205 @@ window.addEventListener('DOMContentLoaded', async () => {
       } catch (error) {
         console.error('Error updating leaderboard:', error);
         leaderboard.innerHTML = '<p class="text-[#9aa3ad] text-center">Error loading leaderboard</p>';
+      }
+    }
+
+    // ======= RECORDING FUNCTIONALITY =======
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordedBlob = null;
+
+    document.getElementById('startRecordingBtn').addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        recordedChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+          const audioUrl = URL.createObjectURL(recordedBlob);
+          const audio = document.getElementById('recordedAudio');
+          audio.src = audioUrl;
+          audio.classList.remove('hidden');
+          
+          // Create a file from the blob for upload
+          const fileName = `recording-${Date.now()}.webm`;
+          const file = new File([recordedBlob], fileName, { type: 'audio/webm' });
+          document.getElementById('recordingInput').files = [file];
+        };
+
+        mediaRecorder.start();
+        
+        document.getElementById('startRecordingBtn').classList.add('hidden');
+        document.getElementById('stopRecordingBtn').classList.remove('hidden');
+        document.getElementById('recordingStatus').classList.remove('hidden');
+        
+        showToast('Recording started! 🎤');
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        showToast('Could not access microphone. Please check permissions.');
+      }
+    });
+
+    document.getElementById('stopRecordingBtn').addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        
+        // Stop all tracks to release microphone
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        
+        document.getElementById('startRecordingBtn').classList.remove('hidden');
+        document.getElementById('stopRecordingBtn').classList.add('hidden');
+        document.getElementById('recordingStatus').classList.add('hidden');
+        
+        showToast('Recording stopped! ✅');
+      }
+    });
+
+    // ======= PASSWORD PROTECTION FOR RECORDINGS =======
+    const RECORDING_PASSWORD = 'english2025'; // Change this to your desired password
+    let hasRecordingAccess = false;
+
+    document.getElementById('viewRecordingsBtn').addEventListener('click', () => {
+      if (hasRecordingAccess) {
+        openRecordingsModal();
+      } else {
+        document.getElementById('passwordModal').classList.remove('hidden');
+        document.getElementById('passwordInput').focus();
+      }
+    });
+
+    document.getElementById('passwordSubmit').addEventListener('click', () => {
+      const password = document.getElementById('passwordInput').value;
+      if (password === RECORDING_PASSWORD) {
+        hasRecordingAccess = true;
+        document.getElementById('passwordModal').classList.add('hidden');
+        document.getElementById('passwordInput').value = '';
+        openRecordingsModal();
+        showToast('Access granted! 🎵');
+      } else {
+        showToast('Incorrect password. Please try again.');
+        document.getElementById('passwordInput').value = '';
+      }
+    });
+
+    document.getElementById('passwordCancel').addEventListener('click', () => {
+      document.getElementById('passwordModal').classList.add('hidden');
+      document.getElementById('passwordInput').value = '';
+    });
+
+    // Close password modal on escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !document.getElementById('passwordModal').classList.contains('hidden')) {
+        document.getElementById('passwordModal').classList.add('hidden');
+        document.getElementById('passwordInput').value = '';
+      }
+    });
+
+    // ======= RECORDINGS MODAL =======
+    function openRecordingsModal() {
+      document.getElementById('recordingsModal').classList.remove('hidden');
+      loadAllRecordings();
+    }
+
+    document.getElementById('closeRecordingsModal').addEventListener('click', () => {
+      document.getElementById('recordingsModal').classList.add('hidden');
+    });
+
+    async function loadAllRecordings() {
+      try {
+        const recordings = await window.supabaseUtils.getAllRecordings();
+        const recordingsList = document.getElementById('recordingsList');
+        
+        if (recordings.length === 0) {
+          recordingsList.innerHTML = '<p class="text-[#9aa3ad] text-center py-8">No recordings found</p>';
+          return;
+        }
+
+        recordingsList.innerHTML = recordings.map(recording => {
+          const userName = recording.challenge_users?.name || 'Unknown User';
+          const date = new Date(recording.date + 'T12:00:00').toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+          });
+
+          return `
+            <div class="bg-[#0f1419] rounded-lg p-4 border border-[#22272e]">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 bg-[#52F756] rounded-full flex items-center justify-center text-[#031b06] font-bold text-sm">
+                    ${userName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p class="font-semibold text-[#dfe6ee] text-sm">${userName}</p>
+                    <p class="text-[#9aa3ad] text-xs">${date}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-2">
+                <p class="text-[#dfe6ee] text-sm font-medium mb-2">${recording.title || 'Untitled Recording'}</p>
+                <audio controls class="w-full">
+                  <source src="${recording.recording_url}" type="audio/webm">
+                  <source src="${recording.recording_url}" type="audio/mp3">
+                  <source src="${recording.recording_url}" type="audio/wav">
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Error loading recordings:', error);
+        document.getElementById('recordingsList').innerHTML = '<p class="text-[#9aa3ad] text-center py-8">Error loading recordings</p>';
+      }
+    }
+
+    // ======= UPDATE RECORDINGS PREVIEW =======
+    async function updateRecordingsPreview() {
+      try {
+        const recordings = await window.supabaseUtils.getAllRecordings();
+        const preview = document.getElementById('recordingsPreview');
+        
+        if (recordings.length === 0) {
+          preview.innerHTML = '<p class="text-[#9aa3ad] text-sm text-center py-4">No recordings yet</p>';
+          return;
+        }
+
+        const recentRecordings = recordings.slice(0, 3);
+        preview.innerHTML = recentRecordings.map(recording => {
+          const userName = recording.challenge_users?.name || 'Unknown User';
+          const date = new Date(recording.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+          return `
+            <div class="bg-[#0f1419] rounded-lg p-3 border border-[#22272e]">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-6 h-6 bg-[#52F756] rounded-full flex items-center justify-center text-[#031b06] font-bold text-xs">
+                  ${userName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p class="font-semibold text-[#dfe6ee] text-xs">${userName}</p>
+                  <p class="text-[#9aa3ad] text-xs">${date}</p>
+                </div>
+              </div>
+              <p class="text-[#dfe6ee] text-xs font-medium mb-2">${recording.title || 'Untitled Recording'}</p>
+              <audio controls class="w-full h-8">
+                <source src="${recording.recording_url}" type="audio/webm">
+                <source src="${recording.recording_url}" type="audio/mp3">
+                <source src="${recording.recording_url}" type="audio/wav">
+              </audio>
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Error updating recordings preview:', error);
+        document.getElementById('recordingsPreview').innerHTML = '<p class="text-[#9aa3ad] text-sm text-center py-4">Error loading recordings</p>';
       }
     }
 
