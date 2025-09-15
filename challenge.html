@@ -83,7 +83,20 @@
       <div class="flex items-center justify-between mb-8">
         <div>
           <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-[#52F756] to-[#43c944] bg-clip-text text-transparent">Challenge Dashboard</h1>
-          <p class="text-[#9aa3ad] text-base sm:text-lg">Welcome back, <span id="userEmail" class="text-[#52F756] font-semibold"></span></p>
+          <div class="flex items-center gap-2 flex-wrap">
+    <p class="text-[#9aa3ad] text-base sm:text-lg">
+      Welcome back, <span id="userEmail" class="text-[#52F756] font-semibold"></span>
+    </p>
+    <a
+      href="https://docs.google.com/spreadsheets/d/1i4GmeBionAJkABJ_y5C4KCgFJXj1ZgF9It2D6HpXeNQ/edit?usp=sharing"
+      target="_blank" rel="noopener"
+      class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs sm:text-sm bg-[#2a313a] text-[#dfe6ee] rounded-lg border border-[#3a4450] hover:bg-[#3a4450] transition-all"
+      title="Open challenge vocabulary (Google Sheets)"
+    >
+      📗 <span class="hidden xs:inline">Challenge Vocab</span>
+      <span class="xs:hidden">Vocab</span>
+    </a>
+  </div>
           <p class="text-[#9aa3ad] text-xs sm:text-sm mt-1">Challenge ends: <span class="text-[#dfe6ee] font-semibold">December 5, 2025</span> · <span id="daysLeft" class="text-[#52F756] font-semibold"></span> days left</p>
         </div>
         <div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
@@ -885,7 +898,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Function to prompt for recording password from community feed
     window.promptRecordingPassword = function() {
       const password = prompt('Enter password to view recordings:');
-      if (password === RECORDING_PASSWORD) {
+      if (password === 'SuperSecret') {
         hasRecordingAccess = true;
         showToast('Access granted! 🎵');
         updateCommunityFeed(); // Refresh the feed to show recordings
