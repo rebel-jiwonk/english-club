@@ -555,7 +555,19 @@ window.addEventListener('DOMContentLoaded', async () => {
       try {
         const today = formatDateLocal(new Date());
         const photoFile = photoInput.files[0] || null;
-        const recordingFile = recordingInput.files[0] || null;
+        
+        // Check for recorded audio or uploaded file
+        let recordingFile = null;
+        if (recordedBlob) {
+          // Use recorded audio
+          const fileName = `recording-${Date.now()}.webm`;
+          recordingFile = new File([recordedBlob], fileName, { type: 'audio/webm' });
+          console.log('Using recorded audio:', recordingFile);
+        } else if (recordingInput.files[0]) {
+          // Use uploaded file
+          recordingFile = recordingInput.files[0];
+          console.log('Using uploaded file:', recordingFile);
+        }
 
         await window.supabaseUtils.logStudyEntry(currentUserId, today, studyText, photoFile);
         
@@ -568,6 +580,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('photoInput').value = '';
         document.getElementById('recordingInput').value = '';
         document.getElementById('recordingTitle').value = '';
+        
+        // Clear recording UI
+        recordedBlob = null;
+        document.getElementById('recordedAudio').classList.add('hidden');
+        document.getElementById('recordedAudio').src = '';
+        
         showToast('Study logged successfully! 🎉');
 
         await loadData();
@@ -626,12 +644,23 @@ window.addEventListener('DOMContentLoaded', async () => {
                   </div>
                 </div>
                 <p class="text-[#dfe6ee] text-xs sm:text-sm mb-2 font-medium">${activity.title || 'Untitled Recording'}</p>
-                <audio controls class="w-full h-8">
-                  <source src="${activity.recording_url}" type="audio/webm">
-                  <source src="${activity.recording_url}" type="audio/mp3">
-                  <source src="${activity.recording_url}" type="audio/wav">
-                  Your browser does not support the audio element.
-                </audio>
+                ${hasRecordingAccess ? `
+                  <audio controls class="w-full h-8">
+                    <source src="${activity.recording_url}" type="audio/webm">
+                    <source src="${activity.recording_url}" type="audio/mp3">
+                    <source src="${activity.recording_url}" type="audio/wav">
+                    Your browser does not support the audio element.
+                  </audio>
+                ` : `
+                  <div class="bg-[#2a313a] rounded-lg p-3 text-center">
+                    <div class="text-2xl mb-2">🔒</div>
+                    <p class="text-[#9aa3ad] text-xs mb-2">Recording is password protected</p>
+                    <button onclick="promptRecordingPassword()" 
+                            class="px-3 py-1 bg-[#52F756] text-[#031b06] text-xs font-semibold rounded hover:bg-[#43c944] transition-all">
+                      Enter Password
+                    </button>
+                  </div>
+                `}
               </div>
             `;
           } else {
@@ -748,10 +777,9 @@ window.addEventListener('DOMContentLoaded', async () => {
           audio.src = audioUrl;
           audio.classList.remove('hidden');
           
-          // Create a file from the blob for upload
-          const fileName = `recording-${Date.now()}.webm`;
-          const file = new File([recordedBlob], fileName, { type: 'audio/webm' });
-          document.getElementById('recordingInput').files = [file];
+          // Store the recorded blob for later use in upload
+          // We can't directly set the files property, so we'll use the blob directly
+          console.log('Recording completed, blob created:', recordedBlob);
         };
 
         mediaRecorder.start();
@@ -783,7 +811,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ======= PASSWORD PROTECTION FOR RECORDINGS =======
-    const RECORDING_PASSWORD = 'english2025'; // Change this to your desired password
+    const RECORDING_PASSWORD = 'SuperSecret'; // Password for viewing recordings
     let hasRecordingAccess = false;
 
     document.getElementById('viewRecordingsBtn').addEventListener('click', () => {
@@ -821,6 +849,18 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('passwordInput').value = '';
       }
     });
+
+    // Function to prompt for recording password from community feed
+    window.promptRecordingPassword = function() {
+      const password = prompt('Enter password to view recordings:');
+      if (password === RECORDING_PASSWORD) {
+        hasRecordingAccess = true;
+        showToast('Access granted! 🎵');
+        updateCommunityFeed(); // Refresh the feed to show recordings
+      } else if (password !== null) { // Only show error if user didn't cancel
+        showToast('Incorrect password. Please try again.');
+      }
+    };
 
     // ======= RECORDINGS MODAL =======
     function openRecordingsModal() {
@@ -865,12 +905,23 @@ window.addEventListener('DOMContentLoaded', async () => {
               </div>
               <div class="mt-2">
                 <p class="text-[#dfe6ee] text-sm font-medium mb-2">${recording.title || 'Untitled Recording'}</p>
-                <audio controls class="w-full">
-                  <source src="${recording.recording_url}" type="audio/webm">
-                  <source src="${recording.recording_url}" type="audio/mp3">
-                  <source src="${recording.recording_url}" type="audio/wav">
-                  Your browser does not support the audio element.
-                </audio>
+                ${hasRecordingAccess ? `
+                  <audio controls class="w-full">
+                    <source src="${recording.recording_url}" type="audio/webm">
+                    <source src="${recording.recording_url}" type="audio/mp3">
+                    <source src="${recording.recording_url}" type="audio/wav">
+                    Your browser does not support the audio element.
+                  </audio>
+                ` : `
+                  <div class="bg-[#2a313a] rounded-lg p-4 text-center">
+                    <div class="text-3xl mb-2">🔒</div>
+                    <p class="text-[#9aa3ad] text-sm mb-3">This recording is password protected</p>
+                    <button onclick="promptRecordingPassword(); loadAllRecordings();" 
+                            class="px-4 py-2 bg-[#52F756] text-[#031b06] text-sm font-semibold rounded hover:bg-[#43c944] transition-all">
+                      Enter Password
+                    </button>
+                  </div>
+                `}
               </div>
             </div>
           `;
@@ -909,11 +960,18 @@ window.addEventListener('DOMContentLoaded', async () => {
                 </div>
               </div>
               <p class="text-[#dfe6ee] text-xs font-medium mb-2">${recording.title || 'Untitled Recording'}</p>
-              <audio controls class="w-full h-8">
-                <source src="${recording.recording_url}" type="audio/webm">
-                <source src="${recording.recording_url}" type="audio/mp3">
-                <source src="${recording.recording_url}" type="audio/wav">
-              </audio>
+              ${hasRecordingAccess ? `
+                <audio controls class="w-full h-8">
+                  <source src="${recording.recording_url}" type="audio/webm">
+                  <source src="${recording.recording_url}" type="audio/mp3">
+                  <source src="${recording.recording_url}" type="audio/wav">
+                </audio>
+              ` : `
+                <div class="bg-[#2a313a] rounded-lg p-2 text-center">
+                  <div class="text-lg mb-1">🔒</div>
+                  <p class="text-[#9aa3ad] text-xs">Password required</p>
+                </div>
+              `}
             </div>
           `;
         }).join('');

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Test Recordings</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+    .result { margin: 10px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; }
+    .success { border-color: #4CAF50; background: #2d4a2d; }
+    .error { border-color: #f44336; background: #4a2d2d; }
+    .info { border-color: #2196F3; background: #2d3a4a; }
+    pre { background: #000; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    button { padding: 10px 20px; background: #52F756; color: #031b06; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Test Recordings Upload & Display</h1>
+  <div id="results"></div>
+  
+  <div style="margin: 20px 0;">
+    <input type="file" id="recordingFile" accept="audio/*" style="margin: 10px;">
+    <input type="text" id="recordingTitle" placeholder="Recording title" style="margin: 10px; padding: 5px;">
+    <button onclick="testRecordingUpload()">Test Upload Recording</button>
+    <button onclick="testGetRecordings()">Test Get All Recordings</button>
+    <button onclick="testDatabaseConnection()">Test Database Connection</button>
+  </div>
+
+  <script type="module">
+    import { supabase, createOrGetUser, uploadRecording, getAllRecordings } from './lib/supabase.js';
+
+    const results = document.getElementById('results');
+
+    function addResult(title, status, message, data = null) {
+      const div = document.createElement('div');
+      div.className = `result ${status}`;
+      div.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+      `;
+      results.appendChild(div);
+    }
+
+    window.testDatabaseConnection = async function() {
+      try {
+        addResult('Database Connection Test', 'info', 'Testing database connection...');
+        
+        // Test 1: Check if challenge_recordings table exists
+        const { data: recordings, error: recordingsError } = await supabase
+          .from('challenge_recordings')
+          .select('*')
+          .limit(1);
+        
+        if (recordingsError) {
+          addResult('Database Connection Test', 'error', `Error accessing challenge_recordings: ${recordingsError.message}`, recordingsError);
+        } else {
+          addResult('Database Connection Test', 'success', `challenge_recordings table accessible. Found ${recordings.length} existing recordings.`);
+        }
+
+        // Test 2: Check storage bucket
+        const { data: buckets, error: bucketsError } = await supabase
+          .storage
+          .listBuckets();
+        
+        if (bucketsError) {
+          addResult('Storage Test', 'error', `Error accessing storage: ${bucketsError.message}`, bucketsError);
+        } else {
+          const studyRecordingsBucket = buckets.find(b => b.id === 'study-recordings');
+          if (studyRecordingsBucket) {
+            addResult('Storage Test', 'success', 'study-recordings bucket exists', studyRecordingsBucket);
+          } else {
+            addResult('Storage Test', 'error', 'study-recordings bucket not found. Available buckets:', buckets);
+          }
+        }
+
+      } catch (error) {
+        addResult('Database Connection Test', 'error', `Unexpected error: ${error.message}`, error);
+      }
+    };
+
+    window.testGetRecordings = async function() {
+      try {
+        addResult('Get Recordings Test', 'info', 'Testing getAllRecordings function...');
+        
+        const recordings = await getAllRecordings();
+        addResult('Get Recordings Test', 'success', `Found ${recordings.length} recordings`, recordings);
+
+      } catch (error) {
+        addResult('Get Recordings Test', 'error', `Error: ${error.message}`, error);
+      }
+    };
+
+    window.testRecordingUpload = async function() {
+      try {
+        const fileInput = document.getElementById('recordingFile');
+        const titleInput = document.getElementById('recordingTitle');
+        
+        if (!fileInput.files[0]) {
+          addResult('Upload Test', 'error', 'Please select a recording file first');
+          return;
+        }
+
+        addResult('Upload Test', 'info', 'Starting recording upload test...');
+        
+        // Create or get user
+        const user = await createOrGetUser('test@example.com', 'Test User');
+        addResult('User Ready', 'success', 'User created/retrieved', user);
+
+        // Upload recording
+        const today = new Date().toISOString().split('T')[0];
+        const recordingFile = fileInput.files[0];
+        const title = titleInput.value.trim() || 'Test Recording';
+        
+        addResult('Upload Details', 'info', `Uploading: ${recordingFile.name} (${recordingFile.size} bytes, ${recordingFile.type})`);
+        
+        const result = await uploadRecording(user.id, today, recordingFile, title);
+        addResult('Upload Test', 'success', 'Recording uploaded successfully!', result);
+
+        // Clear inputs
+        fileInput.value = '';
+        titleInput.value = '';
+
+        // Test getting recordings again
+        setTimeout(async () => {
+          try {
+            const recordings = await getAllRecordings();
+            addResult('Post-Upload Check', 'success', `Now found ${recordings.length} recordings total`, recordings);
+          } catch (error) {
+            addResult('Post-Upload Check', 'error', `Error fetching recordings after upload: ${error.message}`);
+          }
+        }, 1000);
+
+      } catch (error) {
+        addResult('Upload Test', 'error', `Upload failed: ${error.message}`, error);
+      }
+    };
+
+    // Auto-run database connection test on load
+    window.testDatabaseConnection();
+  </script>
+</body>
+</html>
