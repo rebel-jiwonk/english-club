@@ -549,8 +549,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       const photoInput = document.getElementById('photoInput');
       const recordingInput = document.getElementById('recordingInput');
       const recordingTitle = document.getElementById('recordingTitle').value.trim();
-      const recordingInput = document.getElementById('recordingInput');
-      const recordingTitle = document.getElementById('recordingTitle').value.trim();
       if (!studyText) { showToast('Please describe what you studied today'); return; }
 
       showLoading();
@@ -558,14 +556,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         const today = formatDateLocal(new Date());
         const photoFile = photoInput.files[0] || null;
         const recordingFile = recordingInput.files[0] || null;
-        const recordingFile = recordingInput.files[0] || null;
 
         await window.supabaseUtils.logStudyEntry(currentUserId, today, studyText, photoFile);
-        
-        // Upload recording if provided
-        if (recordingFile) {
-          await window.supabaseUtils.uploadRecording(currentUserId, today, recordingFile, recordingTitle);
-        }
         
         // Upload recording if provided
         if (recordingFile) {
@@ -576,8 +568,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('photoInput').value = '';
         document.getElementById('recordingInput').value = '';
         document.getElementById('recordingTitle').value = '';
-        document.getElementById('recordingInput').value = '';
-        document.getElementById('recordingTitle').value = '';
         showToast('Study logged successfully! 🎉');
 
         await loadData();
@@ -585,7 +575,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         generateCalendar();
         updateTodayLogForm();
         await updateCommunityFeed();
-        await updateRecordingsPreview();
         await updateRecordingsPreview();
         await updateLeaderboard();
       } catch (error) {
