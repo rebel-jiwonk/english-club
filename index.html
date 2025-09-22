@@ -188,7 +188,9 @@ async function fetchSignups() {
   async function renderTopBar() {
     try {
       const stats = await jsonp(`${API_URL}?action=stats`);
-      const top = Array.isArray(stats?.topPeople) ? stats.topPeople.slice(0, 20) : [];
+      const top = Array.isArray(stats?.topPeople) 
+        ? stats.topPeople.filter(person => person.name !== 'Break').slice(0, 20) 
+        : [];
 
       const canvas = document.getElementById('topAttendeesChart');
       if (!canvas) return;
