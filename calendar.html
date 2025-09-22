@@ -38,7 +38,12 @@
       <button id="prevMonth" class="px-4 py-2 bg-[#2a313a] text-[#dfe6ee] rounded-lg hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450]">
         ← Previous
       </button>
-      <h2 id="currentMonth" class="text-2xl font-bold text-[#dfe6ee]"></h2>
+      <div class="flex items-center gap-4">
+        <h2 id="currentMonth" class="text-2xl font-bold text-[#dfe6ee]"></h2>
+        <button id="refreshArticles" class="px-3 py-2 bg-[#52F756] text-[#031b06] rounded-lg hover:bg-[#43c944] transition-all duration-200 font-semibold text-sm" title="Refresh articles">
+          🔄 Refresh
+        </button>
+      </div>
       <button id="nextMonth" class="px-4 py-2 bg-[#2a313a] text-[#dfe6ee] rounded-lg hover:bg-[#3a4450] transition-all duration-200 border border-[#3a4450]">
         Next →
       </button>
@@ -109,9 +114,12 @@
     // -------- Data loading --------
     async function loadArticles() {
       try {
-        const response = await fetch('./articles.json');
+        // Add cache-busting parameter to prevent browser caching
+        const cacheBuster = new Date().getTime();
+        const response = await fetch(`./articles.json?v=${cacheBuster}`);
         const data = await response.json();
         articles = data.articles || {};
+        console.log('Articles loaded:', Object.keys(articles));
       } catch (error) {
         console.error('Failed to load articles:', error);
         articles = {};
@@ -232,6 +240,13 @@
     document.getElementById('nextMonth').addEventListener('click', () => {
       currentDate.setMonth(currentDate.getMonth() + 1);
       generateCalendar();
+    });
+
+    document.getElementById('refreshArticles').addEventListener('click', async () => {
+      showToast('Refreshing articles...');
+      await loadArticles();
+      generateCalendar();
+      showToast('Articles refreshed!');
     });
 
     async function init() {
