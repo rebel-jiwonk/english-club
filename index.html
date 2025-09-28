@@ -41,8 +41,7 @@
     </div>
 
     <div class="mt-8 pt-6 border-t border-[#22272e] text-center">
-      <p class="text-[#9aa3ad] text-sm">Having trouble? Ping the organizer in Slack. Data is stored in Google Sheets for this week
-         only.</p>
+      <p class="text-[#9aa3ad] text-sm">Having trouble? Ping the organizer in Slack. Data is stored in Google Sheets for this week only.</p>
     </div>
   </div>
 
@@ -64,6 +63,7 @@
 
   // ---- Week helpers ----
   function getISOWeekString(d=new Date()){
+    // ISO week (UTC-based) for stable storage key
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     const dayNum = (date.getUTCDay() + 6) % 7; // Mon=0
     date.setUTCDate(date.getUTCDate() - dayNum + 3);
@@ -71,46 +71,53 @@
     const week = 1 + Math.round(((date - firstThursday)/86400000 - 3 + ((firstThursday.getUTCDay()+6)%7))/7);
     return `${date.getUTCFullYear()}-W${String(week).padStart(2,"0")}`;
   }
-  function customWeekLabel(d=new Date()) {
-    // Monday of the target week
+
+  // Display label: local Monday→Friday, month on right if crossing months
+  function customWeekLabel(d = new Date()) {
     const start = new Date(d);
+    // Monday (local)
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-    // Thursday (Mon + 3)
     const end = new Date(start);
-    end.setDate(start.getDate() + 3);
-    // "Sep 8 - 11"
+    end.setDate(start.getDate() + 4); // Friday
+
+    const sameMonth = start.getMonth() === end.getMonth();
     const startStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const endStr = end.toLocaleDateString(undefined, { day: 'numeric' });
+    const endStr   = sameMonth
+      ? end.toLocaleDateString(undefined, { day: 'numeric' })
+      : end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
     return `${startStr} - ${endStr}`;
   }
 
-  // Always target NEXT week (signups happen a week before)
-  // Special case: During W40 (Sep 30 - Oct 4), target W42 instead of W41 (holiday week)
   // --- Holiday-aware week targeter ---
-const HOLIDAY_WEEKS = new Set([
-  '2025-W41' // skip this week, jump to W42
-]);
+  // Mark holiday ISO weeks here (YYYY-W##). During W40 this year, W41 is a holiday → target W42.
+  const HOLIDAY_WEEKS = new Set(['2025-W41']);
 
-const today = new Date();
-let target = new Date(today);
-target.setDate(target.getDate() + 7); // normally next week
+  const today = new Date();
+  let target = new Date(today);
+  target.setDate(target.getDate() + 7); // normally next week
 
-const nextWeekISO = getISOWeekString(target);
-if (HOLIDAY_WEEKS.has(nextWeekISO)) {
-  target.setDate(target.getDate() + 7); // skip ahead one more
-}
+  // If next week is a holiday, skip ahead one more week
+  const nextWeekISO = getISOWeekString(target);
+  if (HOLIDAY_WEEKS.has(nextWeekISO)) {
+    target.setDate(target.getDate() + 7);
+  }
 
-// Optional: manual override with ?weeks_ahead=2 in URL
-const params = new URLSearchParams(location.search);
-const weeksAhead = Number(params.get('weeks_ahead'));
-if (!Number.isNaN(weeksAhead) && weeksAhead >= 0) {
-  target = new Date(today);
-  target.setDate(target.getDate() + (weeksAhead * 7));
-}
+  // Optional: manual override with ?weeks_ahead=2 (digits only)
+  const params = new URLSearchParams(location.search);
+  const rawOverride = params.get('weeks_ahead');
+  if (rawOverride !== null && /^\d+$/.test(rawOverride)) {
+    const n = parseInt(rawOverride, 10);
+    if (n >= 0) {
+      target = new Date(today);
+      target.setDate(target.getDate() + (n * 7));
+    }
+  }
 
-const WEEK_ISO   = getISOWeekString(target);
-const WEEK_LABEL = customWeekLabel(target);
-document.getElementById("weekLabel").textContent = WEEK_LABEL;
+  // Final week keys/labels
+  const WEEK_ISO   = getISOWeekString(target);   // for storage/filter
+  const WEEK_LABEL = customWeekLabel(target);    // for display
+  document.getElementById("weekLabel").textContent = WEEK_LABEL;
 
   // ---- UI helpers ----
   const grid  = document.getElementById("grid");
@@ -142,37 +149,37 @@ document.getElementById("weekLabel").textContent = WEEK_LABEL;
   }
 
   // === FETCH signups from your endpoint shape ===
-async function fetchSignups() {
-  // doGet returns: { currentWeek, weeks, byWeek }
-  const data = await jsonp(`${API_URL}?action=signups`);
-  console.log("Fetched data:", data);
+  async function fetchSignups() {
+    // doGet returns: { currentWeek, weeks, byWeek }
+    const data = await jsonp(`${API_URL}?action=signups`);
+    console.log("Fetched data:", data);
 
-  // Always target next week (WEEK_ISO). If missing, show empty rows.
-  if (!data || !data.byWeek) {
-    return { currentWeek: WEEK_ISO, weeks: [], rows: [] };
+    if (!data || !data.byWeek) {
+      return { currentWeek: WEEK_ISO, weeks: [], rows: [] };
+    }
+
+    const rowsForWeek = (data.byWeek[WEEK_ISO] || []).map(r => ({
+      timestamp: r.timestamp,
+      week: r.week,
+      slot: r.slot,
+      name: r.name,
+      email: r.email || ''
+    }));
+
+    return { currentWeek: WEEK_ISO, weeks: data.weeks || [], rows: rowsForWeek };
   }
 
-  const rowsForWeek = (data.byWeek[WEEK_ISO] || []).map(r => ({
-    timestamp: r.timestamp,
-    week: r.week,
-    slot: r.slot,
-    name: r.name,
-    email: r.email || ''
-  }));
-
-  return { currentWeek: WEEK_ISO, weeks: data.weeks || [], rows: rowsForWeek };
-}
   function normSlot(s) {
-  return (s || "")
-    .replace(/\u2013/g, "-")   // en dash → hyphen
-    .replace(/\u2014/g, "-")   // em dash → hyphen
-    .replace(/\s+/g, " ")
-    .trim();
-}
+    return (s || "")
+      .replace(/\u2013/g, "-")   // en dash → hyphen
+      .replace(/\u2014/g, "-")   // em dash → hyphen
+      .replace(/\s+/g, " ")
+      .trim();
+  }
   function slotPeople(rows, slotLabel){
-  const target = normSlot(slotLabel);
-  return rows.filter(r => normSlot(r.slot) === target);
-}
+    const target = normSlot(slotLabel);
+    return rows.filter(r => normSlot(r.slot) === target);
+  }
 
   function namesLine(list, slotLabel){
     if (!list.length) return '<span class="text-[#6b7280] italic">No signups yet</span>';
@@ -186,8 +193,8 @@ async function fetchSignups() {
 
   function cardTemplate(slotLabel, count, namesHtml, full){
     const seatColor = count >= CAP ? 'text-red-400' : count >= CAP-1 ? 'text-yellow-400' : 'text-[#52F756]';
-    const btn = full 
-      ? `<button disabled class="mt-4 px-6 py-3 rounded-xl bg-gray-600 text-gray-400 font-bold cursor-not-allowed transition-all duration-200 border border-gray-500">Full</button>` 
+    const btn = full
+      ? `<button disabled class="mt-4 px-6 py-3 rounded-xl bg-gray-600 text-gray-400 font-bold cursor-not-allowed transition-all duration-200 border border-gray-500">Full</button>`
       : `<button data-slot="${slotLabel}" class="mt-4 px-6 py-3 rounded-xl bg-[#52F756] text-[#031b06] font-bold hover:bg-[#43c944] hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl transform active:scale-95">Join</button>`;
     return `
       <div class="card bg-gradient-to-br from-[#1a1f26] to-[#14171c] border border-[#2a313a] rounded-2xl p-6 flex flex-col items-center gap-4 w-full max-w-sm mx-auto shadow-lg hover:shadow-xl transition-all duration-300 hover:border-[#52F756]/30 hover:transform hover:scale-[1.02]">
@@ -208,8 +215,8 @@ async function fetchSignups() {
   async function renderTopBar() {
     try {
       const stats = await jsonp(`${API_URL}?action=stats`);
-      const top = Array.isArray(stats?.topPeople) 
-        ? stats.topPeople.filter(person => person.name !== 'Break').slice(0, 20) 
+      const top = Array.isArray(stats?.topPeople)
+        ? stats.topPeople.filter(person => person.name !== 'Break').slice(0, 20)
         : [];
 
       const canvas = document.getElementById('topAttendeesChart');
@@ -226,40 +233,37 @@ async function fetchSignups() {
       const ctx = canvas.getContext('2d');
 
       _topChart = new Chart(ctx, {
-  type: 'bar',
-  data: {
-    labels,
-    datasets: [{
-      label: 'Attendance count',
-      data,
-      barThickness: 8,          // thinner bars
-      maxBarThickness: 20,
-      borderRadius: 3
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    datasets: {
-      bar: {
-        categoryPercentage: 0.5, // tighter category width
-        barPercentage: 0.7       // thinner bar within category
-      }
-    },
-    scales: {
-      x: {
-        ticks: { color: '#dfe6ee', maxRotation: 0, autoSkip: true, font: { size: 15 } },
-        grid: { color: 'rgba(255,255,255,0.06)' }
-      },
-      y: {
-        beginAtZero: true,
-        ticks: { precision: 0, color: '#dfe6ee' },
-        grid: { color: 'rgba(255,255,255,0.06)' }
-      }
-    }
-  }
-});
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Attendance count',
+            data,
+            barThickness: 8,
+            maxBarThickness: 20,
+            borderRadius: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          datasets: {
+            bar: { categoryPercentage: 0.5, barPercentage: 0.7 }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#dfe6ee', maxRotation: 0, autoSkip: true, font: { size: 15 } },
+              grid: { color: 'rgba(255,255,255,0.06)' }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, color: '#dfe6ee' },
+              grid: { color: 'rgba(255,255,255,0.06)' }
+            }
+          }
+        }
+      });
     } catch (e) {
       console.error('Top bar render failed:', e);
     }
