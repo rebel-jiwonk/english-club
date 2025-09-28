@@ -86,21 +86,31 @@
 
   // Always target NEXT week (signups happen a week before)
   // Special case: During W40 (Sep 30 - Oct 4), target W42 instead of W41 (holiday week)
-  const today = new Date();
-  const currentWeekISO = getISOWeekString(today);
-  
-  const TARGET = new Date();
-  if (currentWeekISO === '2024-W40') {
-    // Skip holiday week W41, target W42 (2 weeks ahead)
-    TARGET.setDate(TARGET.getDate() + 14);
-  } else {
-    // Normal behavior: target next week
-    TARGET.setDate(TARGET.getDate() + 7);
-  }
+  // --- Holiday-aware week targeter ---
+const HOLIDAY_WEEKS = new Set([
+  '2025-W41' // skip this week, jump to W42
+]);
 
-  const WEEK_ISO   = getISOWeekString(TARGET);   // for storage/filter
-  const WEEK_LABEL = customWeekLabel(TARGET);    // for display
-  document.getElementById("weekLabel").textContent = WEEK_LABEL;
+const today = new Date();
+let target = new Date(today);
+target.setDate(target.getDate() + 7); // normally next week
+
+const nextWeekISO = getISOWeekString(target);
+if (HOLIDAY_WEEKS.has(nextWeekISO)) {
+  target.setDate(target.getDate() + 7); // skip ahead one more
+}
+
+// Optional: manual override with ?weeks_ahead=2 in URL
+const params = new URLSearchParams(location.search);
+const weeksAhead = Number(params.get('weeks_ahead'));
+if (!Number.isNaN(weeksAhead) && weeksAhead >= 0) {
+  target = new Date(today);
+  target.setDate(target.getDate() + (weeksAhead * 7));
+}
+
+const WEEK_ISO   = getISOWeekString(target);
+const WEEK_LABEL = customWeekLabel(target);
+document.getElementById("weekLabel").textContent = WEEK_LABEL;
 
   // ---- UI helpers ----
   const grid  = document.getElementById("grid");
